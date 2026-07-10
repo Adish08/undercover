@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Undercover - Social Deduction Party Game</title>
+  <meta name="description" content="Play Undercover - the ultimate social deduction party game. Find the undercover agent and Mr. White before they take over!">
+  <meta name="theme-color" content="#ff4757">
+  
+  <!-- Apple Mobile Web App Metas -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Undercover">
+  
+  <!-- Open Graph / Social Graph -->
+  <meta property="og:title" content="Undercover - Social Deduction Party Game">
+  <meta property="og:description" content="Play Undercover with friends. Find the undercover agent and Mr. White before they take over!">
+  <meta property="og:type" content="website">
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta property="og:image" content="icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:image" content="icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app-container">
+
+    <!-- View: Setup -->
+    <section id="view-setup" class="view active">
+      <header>
+        <h1>Undercover</h1>
+        <p class="subtitle">The social deduction game</p>
+        <button id="btn-theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">
+          <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+      </header>
+      <div class="content">
+        <div class="card">
+          <h2>Game Setup</h2>
+          
+          <div class="input-group">
+            <label for="civilians-count">Civilians</label>
+            <div class="counter">
+              <button id="civilians-minus" class="btn-icon">-</button>
+              <span id="civilians-display">3</span>
+              <button id="civilians-plus" class="btn-icon">+</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="undercovers-count">Undercovers</label>
+            <div class="counter">
+              <button id="undercovers-minus" class="btn-icon">-</button>
+              <span id="undercovers-display">1</span>
+              <button id="undercovers-plus" class="btn-icon">+</button>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="mrwhite-count">Mr. White</label>
+            <div class="counter">
+              <button id="mrwhite-minus" class="btn-icon">-</button>
+              <span id="mrwhite-display">0</span>
+              <button id="mrwhite-plus" class="btn-icon">+</button>
+            </div>
+          </div>
+          
+          <div class="summary">
+            Total Players: <span id="total-players" class="highlight-civ">4</span>
+          </div>
+          <div id="setup-warning" class="warning hidden"></div>
+        </div>
+
+        <!-- How to Play Card -->
+        <div class="card accordion" id="how-to-play-card">
+          <div class="accordion-header" id="how-to-play-toggle">
+            <h3>How to Play</h3>
+            <svg class="arrow-icon" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="accordion-content" id="how-to-play-content">
+            <p><span class="highlight-civ">Civilians</span> receive the same word. <span class="highlight-und">Undercovers</span> receive a similar word. <span class="highlight-white">Mr. White</span> gets no word.</p>
+            <p>Players take turns giving a one-word or short sentence clue about their word. Don't make it too obvious!</p>
+            <p>After clues, discuss and vote for who you think is Undercover or Mr. White.</p>
+            <p>Civilians win if they vote out all non-civilians. Undercovers win if they survive. Mr. White wins if they guess the civilian word after being voted out!</p>
+          </div>
+        </div>
+
+      </div>
+      <footer>
+        <button id="btn-next-players" class="btn-primary">
+          <span>Next</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- View: Players -->
+    <section id="view-players" class="view hidden">
+      <header>
+        <button id="btn-back-setup" class="btn-text">← Back</button>
+        <h1>Player Names</h1>
+      </header>
+      <div class="content">
+        <div class="card">
+          <p class="instructions" style="margin-bottom: 24px;">Enter names for <span id="player-count-display">5</span> players.</p>
+          <div id="player-inputs-container">
+            <!-- Dynamically populated -->
+          </div>
+          <div id="players-warning" class="warning hidden" style="margin-top: 16px;"></div>
+        </div>
+      </div>
+      <footer>
+        <button id="btn-start-game" class="btn-primary">
+          <span>Start Game</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- View: Reveal -->
+    <section id="view-reveal" class="view hidden">
+      <div class="content centered">
+        <h2 id="reveal-player-name">Player Name</h2>
+        <p class="instructions">Pass the device to <span id="reveal-player-name-inline"></span>. Everyone else, look away!</p>
+        
+        <div class="flip-card-container" id="reveal-card">
+          <div class="flip-card-inner">
+            <div class="flip-card-front">
+              <p>Tap to Reveal Role</p>
+            </div>
+            <div class="flip-card-back">
+              <h3 id="reveal-role-title">Your Word</h3>
+              <p id="reveal-word" class="secret-word">APPLE</p>
+            </div>
+          </div>
+        </div>
+        
+        <button id="btn-next-reveal" class="btn-primary invisible" style="width: auto; padding-left: 32px; padding-right: 32px; margin: 0 auto; display: block;">Got it, Hide</button>
+      </div>
+    </section>
+
+    <!-- View: Game (Clue Phase) -->
+    <section id="view-game" class="view hidden">
+      <header style="display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; justify-items: center; margin-bottom: 24px;">
+        <div></div>
+        <h1 style="margin: 0;">Clue Phase</h1>
+        <button id="btn-new-game-top" class="btn-icon danger" aria-label="Restart Game" title="Restart Game" style="margin: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </header>
+      <div class="content">
+        <div class="card current-turn">
+          <h2>Current Turn</h2>
+          <h3 id="current-player-turn">Player Name</h3>
+          <p>Describe your word without saying it.</p>
+        </div>
+        <div class="card">
+          <h3>Living Players</h3>
+          <ul id="living-players-list" class="player-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+        <div class="card" id="eliminated-players-card" style="display: none; margin-top: 24px; opacity: 0.6;">
+          <h3>Eliminated</h3>
+          <ul id="eliminated-players-list" class="player-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+      </div>
+      <footer>
+        <button id="btn-next-turn" class="btn-primary">
+          <span>Next Player</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <button id="btn-start-voting" class="btn-primary hidden">
+          <span>Go to Voting</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- View: Voting -->
+    <section id="view-voting" class="view hidden">
+      <header>
+        <h1>Voting Phase</h1>
+        <p class="subtitle">Discuss and cast your votes</p>
+      </header>
+      <div class="content">
+        <div id="voting-callout" class="callout hidden" style="margin-bottom: 24px;"></div>
+        <div id="voting-list" class="card list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+      <footer>
+        <button id="btn-confirm-votes" class="btn-primary">Confirm Votes</button>
+      </footer>
+    </section>
+
+    <!-- Modal: Mr White Guess -->
+    <div id="modal-mrwhite" class="modal hidden">
+      <div class="modal-content">
+        <h2>Mr. White Eliminated!</h2>
+        <p><span id="mrwhite-player-name"></span>, you are Mr. White. Guess the civilian word to win.</p>
+        <input type="text" id="mrwhite-guess-input" placeholder="Enter word here..." autocomplete="off">
+        <div id="mrwhite-feedback" class="feedback"></div>
+        <button id="btn-mrwhite-submit" class="btn-primary">Submit Guess</button>
+      </div>
+    </div>
+
+    <!-- Modal: Eliminated Reveal -->
+    <div id="modal-eliminated" class="modal hidden">
+      <div class="modal-content">
+        <h2 id="eliminated-title">Player Voted Out</h2>
+        <p id="eliminated-role-info">They were a Civilian.</p>
+        <button id="btn-continue-game" class="btn-primary">Continue</button>
+      </div>
+    </div>
+
+    <!-- View: Game Over -->
+    <section id="view-gameover" class="view hidden">
+      <header>
+        <h1 id="gameover-winner">Civilians Win!</h1>
+        <p id="gameover-reason" class="subtitle">All undercovers eliminated.</p>
+      </header>
+      <div class="content" style="gap: 24px;">
+        <div id="gameover-stats"></div>
+        
+        <div class="gameover-section">
+          <div class="section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"/></svg>
+            <h3>Leaderboard</h3>
+          </div>
+          <div id="leaderboard-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div class="gameover-section">
+          <div class="section-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--color-primary); flex-shrink: 0;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <h3>Game Recap</h3>
+          </div>
+          <div id="recap-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+      <footer>
+        <button id="btn-rematch" class="btn-primary">Next Round</button>
+        <button id="btn-new-game-bottom" class="btn-secondary">Return to Setup</button>
+      </footer>
+    </section>
+
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
