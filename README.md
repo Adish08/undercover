@@ -3,7 +3,7 @@
 An elegant, mobile-first social deduction party game built with vanilla web technologies. Playable offline as a Progressive Web App (PWA), it features rich aesthetics, fluid animations, dynamic dark/light theme support, and a local leaderboard to keep track of scores across rounds.
 
 > [!NOTE]
-> Check it out on [GitHub Pages](https://github.com/adish08/Undercover)
+> Check it out on [GitHub Pages](https://adish08.github.io/undercover)
 
 ---
 
