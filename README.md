@@ -2,7 +2,8 @@
 
 An elegant, mobile-first social deduction party game built with vanilla web technologies. Playable offline as a Progressive Web App (PWA), it features rich aesthetics, fluid animations, dynamic dark/light theme support, and a local leaderboard to keep track of scores across rounds.
 
-Check it out on [GitHub Pages](https://github.com/adish/Undercover) (replace with your deployment link).
+> [!NOTE]
+> Check it out on [GitHub Pages](https://github.com/adish08/Undercover)
 
 ---
 
@@ -12,11 +13,12 @@ In **Undercover**, players are secretly assigned roles. The goal of the game is 
 
 | Role | Description | Scoring |
 | :--- | :--- | :--- |
-| **Civilians** 🟩 | Receive the secret **Civilian Word** (e.g., *Lemon*). They must describe it and vote out all imposters. | **+2 pts** on a win |
-| **Undercovers** 🟧 | Receive a closely related **Undercover Word** (e.g., *Lime*). They must blend in and survive. | **+10 pts** on a win |
-| **Mr. White** 🟩 | Receives **no word**. They must guess the civilian word based on clues, and can win by guessing it correctly if voted out. | **+6 pts** on a win |
+| **Civilians** | Receive the secret **Civilian Word** (e.g., *Lemon*). They must describe it and vote out all imposters. | **+2 pts** on a win |
+| **Undercovers**  | Receive a closely related **Undercover Word** (e.g., *Lime*). They must blend in and survive. | **+10 pts** on a win |
+| **Mr. White** | Receives **no word**. They must guess the civilian word based on clues, and can win by guessing it correctly if voted out. | **+6 pts** on a win |
 
 ### Flow of Play
+
 1. **Setup:** Choose the number of Civilians, Undercovers, and Mr. Whites. Enter player names.
 2. **Reveal:** Players secretly tap the screen to view their word or role.
 3. **Clue Phase:** Players take turns giving a one-word or short-phrase clue describing their word.
@@ -47,40 +49,20 @@ In **Undercover**, players are secretly assigned roles. The goal of the game is 
 └── sw.js             # Service Worker caching assets for offline resilience
 ```
 
----
+## 🤝 Contributing
 
-## 🚀 Running Locally
+Contributions make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-Since this app uses native ES Modules (`import/export`), running it directly from the local file system (`file://` protocol) will trigger CORS restrictions in modern browsers. You need a local development server:
+1. **Fork** the Project.
+2. **Create** your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3. **Commit** your Changes (`git commit -m 'Add some AmazingFeature'`).
+4. **Push** to the Branch (`git push origin feature/AmazingFeature`).
+5. **Open** a Pull Request.
 
-### Option A: VS Code Live Server (Easiest)
-1. Install the **Live Server** extension in VS Code.
-2. Click **Go Live** in the bottom-right status bar.
-
-### Option B: Node.js (http-server / vite)
-If you have Node.js installed, run this in your terminal:
-```bash
-npx http-server
-```
-or 
-```bash
-npx vite
-```
-Open the local URL in your browser.
+Feel free to [open an issue](https://github.com/adish08/Undercover/issues) to report bugs or suggest new features!
 
 ---
 
-## 📦 Publishing & Deployment
+## 📄 License
 
-1. **GitHub Pages:** Go to your repository settings -> **Pages**, set the source branch to `main`, and select the `/root` folder.
-2. **Icons:** The app is configured with high-quality splash and launcher PNG icons (`icon-192.png` and `icon-512.png`). Ensure these are in the root directory for PWA installation to work.
-
----
-
-## 📝 Customizing the Word List
-
-To add your own word pairs, simply open [words.js](file:///Users/adish/Documents/GitHub/Undercover/words.js) and append them to the `WORD_DATABASE` array following this format:
-```javascript
-{ genre: "Your Category", difficulty: "Easy|Medium|Hard", wordA: "CivilianWord", wordB: "UndercoverWord" }
-```
-When you update the word database, the service worker will automatically detect changes, invalidate the cache, and update players' apps on their next reload.
+Distributed under the MIT License. See `LICENSE` for more information.
