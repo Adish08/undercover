@@ -18,7 +18,10 @@ let state = {
   mrWhiteGuessing: null, // Player object
   scores: {}, // { 'player name': score }
   roundsElapsed: 0,
-  currentView: 'setup'
+  currentView: 'setup',
+  revealOrder: [],
+  timerInterval: null,
+  turnTime: 0
 };
 
 function escapeHTML(str) {
@@ -294,6 +297,8 @@ function startGame() {
   });
   state.roundsElapsed = 0;
   state.revealIndex = 0;
+  state.revealOrder = state.players.map(p => p.id);
+  shuffleArray(state.revealOrder);
   setupReveal();
   switchView('reveal');
 }
@@ -302,7 +307,8 @@ function setupReveal() {
   elRevealCard.classList.remove('flipped');
   btnNextReveal.classList.add('invisible');
   
-  const player = state.players[state.revealIndex];
+  const currentRevealId = state.revealOrder[state.revealIndex];
+  const player = state.players.find(p => p.id === currentRevealId);
   elRevealPlayerName.textContent = player.name;
   elRevealPlayerNameInline.textContent = player.name;
   
@@ -348,6 +354,20 @@ function updateGameView() {
   const currentPlayer = state.players.find(p => p.id === currentId);
   elCurrentPlayerTurn.textContent = currentPlayer.name;
 
+  // Timer logic
+  clearInterval(state.timerInterval);
+  state.turnTime = 0;
+  const elTimer = document.getElementById('turn-timer');
+  if (elTimer) elTimer.textContent = '00:00';
+  state.timerInterval = setInterval(() => {
+    state.turnTime++;
+    if (elTimer) {
+      const mins = Math.floor(state.turnTime / 60).toString().padStart(2, '0');
+      const secs = (state.turnTime % 60).toString().padStart(2, '0');
+      elTimer.textContent = `${mins}:${secs}`;
+    }
+  }, 1000);
+
   const living = state.players.filter(p => p.status === 'alive');
   elLivingPlayersList.innerHTML = living.map(p => {
     const color = avatarColors[p.id % avatarColors.length];
@@ -390,7 +410,12 @@ function nextTurn() {
 }
 
 function goToVoting() {
+  clearInterval(state.timerInterval);
   const living = state.players.filter(p => p.status === 'alive');
+  
+  const maxVotesDisplay = document.getElementById('max-votes-display');
+  if (maxVotesDisplay) maxVotesDisplay.textContent = living.length - 1;
+
   elVotingList.innerHTML = living.map(p => `
     <div class="voting-item">
       <span class="voting-name">${escapeHTML(p.name)}</span>
@@ -421,19 +446,19 @@ function goToVoting() {
 function updateVote(id, change) {
   const el = document.getElementById(`vote-${id}`);
   let val = parseInt(el.textContent);
-  val = Math.max(0, val + change);
+  val = Math.max(-1, val + change);
   el.textContent = val;
 }
 
 function confirmVotes() {
   const living = state.players.filter(p => p.status === 'alive');
-  let maxVotes = -1;
+  let maxVotes = -Infinity;
   let candidates = [];
-  let totalVotes = 0;
+  let totalAbsoluteVotes = 0;
   
   living.forEach(p => {
     const votes = parseInt(document.getElementById(`vote-${p.id}`).textContent);
-    totalVotes += votes;
+    totalAbsoluteVotes += Math.abs(votes);
     if (votes > maxVotes) {
       maxVotes = votes;
       candidates = [p];
@@ -447,14 +472,32 @@ function confirmVotes() {
     callout.classList.add('hidden');
     callout.className = 'callout hidden'; // reset class
   }
-
-  if (totalVotes !== living.length) {
+  
+  if (maxVotes > living.length - 1) {
     if (callout) {
       callout.className = 'callout callout-warning';
-      callout.innerHTML = `Please make sure everyone has voted!<br>Expected <strong>${living.length}</strong> votes, but counted <strong>${totalVotes}</strong>.`;
+      callout.innerHTML = `No single player can receive more than <strong>${living.length - 1}</strong> votes!`;
+      callout.classList.remove('hidden');
     }
     return;
   }
+
+  if (totalAbsoluteVotes !== living.length) {
+    if (callout) {
+      callout.className = 'callout callout-warning';
+      callout.innerHTML = `Please make sure everyone has voted!<br>Expected <strong>${living.length}</strong> total absolute votes, but counted <strong>${totalAbsoluteVotes}</strong>.`;
+      callout.classList.remove('hidden');
+    }
+    return;
+  }
+
+  // Deduct negative votes from total score
+  living.forEach(p => {
+    const votes = parseInt(document.getElementById(`vote-${p.id}`).textContent);
+    if (votes < 0) {
+      state.scores[p.name] = (state.scores[p.name] || 0) + votes;
+    }
+  });
 
   if (candidates.length > 1) {
     const names = candidates.map(c => escapeHTML(c.name)).join(', ');
@@ -680,6 +723,9 @@ function resetToSetup() {
   state.mrWhiteGuessing = null;
   state.scores = {};
   state.roundsElapsed = 0;
+  state.revealOrder = [];
+  clearInterval(state.timerInterval);
+  state.turnTime = 0;
 
   // 2. Sync setup view counters
   elCivCount.textContent = state.config.civilians;

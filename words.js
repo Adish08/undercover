@@ -21,7 +21,6 @@ export const WORD_DATABASE = [
   { genre: "Nature", difficulty: "Easy", wordA: "Sun", wordB: "Moon" },
   // Nature (Medium)
   { genre: "Nature", difficulty: "Medium", wordA: "River", wordB: "Lake" },
-  { genre: "Nature", difficulty: "Medium", wordA: "Forest", wordB: "Jungle" },
   { genre: "Nature", difficulty: "Medium", wordA: "Cloud", wordB: "Fog" },
   { genre: "Nature", difficulty: "Medium", wordA: "Island", wordB: "Peninsula" },
   // Nature (Hard)
@@ -76,7 +75,7 @@ export const WORD_DATABASE = [
   { genre: "Animals", difficulty: "Hard", wordA: "Turtle", wordB: "Tortoise" },
   { genre: "Animals", difficulty: "Hard", wordA: "Butterfly", wordB: "Moth" },
   { genre: "Animals", difficulty: "Hard", wordA: "Crow", wordB: "Raven" },
-  { genre: "Animals", difficulty: "Hard", wordA: "Alpaca", wordB: "Llama" },
+
 
   // Places & Structures (Easy)
   { genre: "Places", difficulty: "Easy", wordA: "Library", wordB: "Bookstore" },
@@ -100,7 +99,7 @@ export const WORD_DATABASE = [
   { genre: "Transport", difficulty: "Medium", wordA: "Helicopter", wordB: "Airplane" },
   // Transport (Hard)
   { genre: "Transport", difficulty: "Hard", wordA: "Canoe", wordB: "Kayak" },
-  { genre: "Transport", difficulty: "Hard", wordA: "Blimp", wordB: "Hot Air Balloon" },
+  { genre: "Transport", difficulty: "Hard", wordA: "Hot Air Balloon", wordB: "Airbus" },
 
   // Arts & Entertainment (Medium/Hard)
   { genre: "Arts", difficulty: "Medium", wordA: "Movie", wordB: "Play" },
@@ -112,8 +111,6 @@ export const WORD_DATABASE = [
   // Hobbies & Sports (Medium/Hard)
   { genre: "Sports", difficulty: "Medium", wordA: "Soccer", wordB: "Basketball" },
   { genre: "Sports", difficulty: "Medium", wordA: "Tennis", wordB: "Badminton" },
-  { genre: "Sports", difficulty: "Hard", wordA: "Ballet", wordB: "Gymnastics" },
-  { genre: "Sports", difficulty: "Hard", wordA: "Snooker", wordB: "Billiards" },
   
   // Fashion (Medium/Hard)
   { genre: "Fashion", difficulty: "Medium", wordA: "Jacket", wordB: "Coat" },
