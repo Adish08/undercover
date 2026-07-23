@@ -1,68 +1,77 @@
-# Undercover 🕵️‍♂️💬
+# Undercover 🕵️‍♂️
 
-An elegant, mobile-first social deduction party game built with vanilla web technologies. Playable offline as a Progressive Web App (PWA), it features rich aesthetics, fluid animations, dynamic dark/light theme support, and a local leaderboard to keep track of scores across rounds.
+A production-ready, mobile-first **social deduction** party game — pass one device around the table, give clever clues, and vote out the impostors.
 
-> [!NOTE]
-> Check it out on [GitHub Pages](https://adish08.github.io/undercover)
+> Play: [adish08.github.io/undercover](https://adish08.github.io/undercover)
 
 ---
 
-## 🎮 Game Rules & Roles
+## Classic rules (aligned)
 
-In **Undercover**, players are secretly assigned roles. The goal of the game is to identify who is out of place before it's too late!
-
-| Role | Description | Scoring |
+| Role | What they know | How they win |
 | :--- | :--- | :--- |
-| **Civilians** | Receive the secret **Civilian Word** (e.g., *Lemon*). They must describe it and vote out all imposters. | **+2 pts** on a win |
-| **Undercovers**  | Receive a closely related **Undercover Word** (e.g., *Lime*). They must blend in and survive. | **+10 pts** on a win |
-| **Mr. White** | Receives **no word**. They must guess the civilian word based on clues, and can win by guessing it correctly if voted out. | **+6 pts** on a win |
+| **Civilians** | Same secret word | Eliminate every Undercover & Mr. White |
+| **Undercovers** | A *similar* word | Survive until specials ≥ civilians |
+| **Mr. White** | No word | Guess the civilian word when voted out (instant win), or survive an Undercover victory for partial credit |
 
-### Flow of Play
+### Flow
 
-1. **Setup:** Choose the number of Civilians, Undercovers, and Mr. Whites. Enter player names.
-2. **Reveal:** Players secretly tap the screen to view their word or role.
-3. **Clue Phase:** Players take turns giving a one-word or short-phrase clue describing their word.
-4. **Voting Phase:** Discuss clues, cast votes, and confirm the majority choice.
-5. **Outcome:** If Mr. White is voted out, they get one final chance to guess the Civilian Word. The game ends when all special roles are eliminated (Civilian Win) or when the imposters match the number of surviving Civilians (Imposter Win).
+1. **Setup** — pick player count (balanced presets), role mix, word difficulty  
+2. **Reveal** — each player privately sees their word (or Mr. White blank)  
+3. **Clues** — randomized speaking order; short clues only  
+4. **Vote** — one vote per living player; highest is eliminated  
+5. **Resolve** — roles revealed on elimination; Mr. White may guess  
 
----
+Scoring (multi-round table play):
 
-## ✨ Features
+- Civilian win: **+2** (+1 survival bonus if still alive)  
+- Undercover win: **+10**  
+- Mr. White correct guess: **+6**  
+- Mr. White survives an Undercover win: **+4**  
 
-- **📱 Mobile-First Design & PWA:** Fully responsive layout with touch-friendly elements. It installs directly to Android or iOS home screens and works 100% offline.
-- **✨ Fluid View Transitions:** Animated screen transitions utilizing double-reflow scheduling (`requestAnimationFrame`) for native-app-like sliding feel.
-- **🌓 Adaptive Theme Engine:** Auto-syncs with the operating system's light/dark system settings, with a manual quick-toggle option.
-- **📊 Interactive Leaderboard & Recap:** Tracks scores locally across multiple rounds. At the end of the round, see the full recap of who had which word.
-- **🙅‍♂️ Smart Validation:** Automatically catches duplicate player names and warns about unbalanced role counts to ensure fair play.
-- **⚡ No Build Tools:** Written entirely in vanilla HTML, JavaScript (ES Modules), and pure CSS—no heavy frameworks required.
+Scores persist in `localStorage` across sessions.
 
 ---
 
-## 🛠️ Project Structure
+## What was improved from the original build
 
-```bash
-├── index.html        # Main app UI structure & meta tags (SEO, OpenGraph, PWA)
-├── styles.css        # Premium custom CSS (gradients, animations, responsive grid)
-├── app.js            # Core SPA router, game state machine, and voting logic
-├── words.js          # Extensible categories & difficulty-sorted word database
-├── manifest.json     # PWA manifest detailing icons, theme color, and standalone orientation
-└── sw.js             # Service Worker caching assets for offline resilience
+| Area | Before | Now |
+| :--- | :--- | :--- |
+| **UI** | Flat Inter cards | Apple-like glass, SF system type, ambient orbs, spring motion |
+| **Now Playing** | Simple name list | Spotlight speaker, timer ring, turn strip, live roster |
+| **Leaderboard** | Flat list + emoji | Podium (gold/silver/bronze) + ranked list, persistent scores |
+| **Word pairs** | ~100, some too distant (Bird/Fish) | 160+ curated cousins by difficulty |
+| **Balance** | Manual only | Smart presets by player count (3–12) |
+| **Voting** | ± with negative votes | Classic non-negative tallies + progress meter + leader highlight |
+| **Mr. White guess** | Exact / substring only | Normalized + fuzzy edit distance |
+| **Reveal** | Showed role labels | Civilians/Undercovers only see the **word** (classic secrecy) |
+| **PWA** | Cache-first v3 | Network refresh + offline fallback v4 |
+
+---
+
+## Stack
+
+Vanilla HTML / CSS / ES modules — no build step. Installable PWA.
+
+```
+index.html   UI shell
+styles.css   Design system
+app.js       State machine & rules
+words.js     Word pairs + presets + scoring constants
+manifest.json / sw.js   PWA
 ```
 
-## 🤝 Contributing
+## Local run
 
-Contributions make the open-source community an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+```bash
+# any static server
+npx serve .
+# or
+python3 -m http.server 8080
+```
 
-1. **Fork** the Project.
-2. **Create** your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. **Commit** your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. **Push** to the Branch (`git push origin feature/AmazingFeature`).
-5. **Open** a Pull Request.
+Open `http://localhost:8080` (modules require HTTP, not `file://`).
 
-Feel free to [open an issue](https://github.com/adish08/Undercover/issues) to report bugs or suggest new features!
+## License
 
----
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+MIT — see `LICENSE`.

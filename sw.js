@@ -1,39 +1,43 @@
-const CACHE_NAME = 'undercover-v3';
+const CACHE_NAME = "undercover-v4";
 const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './words.js',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./words.js",
+  "./manifest.json",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener("install", (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('activate', (e) => {
+self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keyList) => {
-      return Promise.all(keyList.map((key) => {
-        if (key !== CACHE_NAME) {
-          return caches.delete(key);
-        }
-      }));
-    })
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (e) => {
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      return cachedResponse || fetch(e.request);
+    caches.match(e.request).then((cached) => {
+      const fetched = fetch(e.request)
+        .then((res) => {
+          if (res && res.status === 200 && res.type === "basic") {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || fetched;
     })
   );
 });

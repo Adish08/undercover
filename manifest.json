@@ -1,11 +1,13 @@
 {
-  "name": "Undercover - Social Deduction Party Game",
+  "name": "Undercover — Social Deduction",
   "short_name": "Undercover",
+  "description": "Find the undercover agent. Elegant pass-and-play social deduction.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ff4757",
+  "background_color": "#0A0A0C",
+  "theme_color": "#0A0A0C",
   "orientation": "portrait-primary",
+  "categories": ["games", "entertainment"],
   "icons": [
     {
       "src": "icon-192.png",

@@ -1,750 +1,1095 @@
-import { getRandomWordPair } from './words.js';
+import { getRandomWordPair, ROLE_PRESETS, SCORE } from "./words.js";
 
-// --- State ---
-let state = {
-  config: {
-    civilians: 3,
-    undercovers: 1,
-    mrWhite: 0
-  },
-  players: [], // { name: string, role: string, word: string, status: 'alive' | 'eliminated' }
-  words: {
-    civilian: '',
-    undercover: ''
-  },
-  revealIndex: 0,
-  turnOrder: [],
-  winner: null,
-  mrWhiteGuessing: null, // Player object
-  scores: {}, // { 'player name': score }
-  roundsElapsed: 0,
-  currentView: 'setup',
-  revealOrder: [],
-  timerInterval: null,
-  turnTime: 0
-};
-
-function escapeHTML(str) {
-  return str.replace(/[&<>'"]/g, 
-    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-  );
-}
-
-const avatarColors = ['#ff7675', '#0984e3', '#00b894', '#e17055', '#6c5ce7', '#fdcb6e', '#e84393'];
+/* ═══════════════════════════════════════════════════════════
+   Undercover — game engine
+   Aligned with classic Undercover / Who is the Spy rules.
+   ═══════════════════════════════════════════════════════════ */
 
 const ROLES = {
-  CIVILIAN: 'Civilian',
-  UNDERCOVER: 'Undercover',
-  MR_WHITE: 'Mr. White'
+  CIVILIAN: "Civilian",
+  UNDERCOVER: "Undercover",
+  MR_WHITE: "Mr. White",
 };
 
-// --- DOM Elements ---
+const AVATAR_COLORS = [
+  "#FF453A", "#FF9F0A", "#FFD60A", "#30D158",
+  "#64D2FF", "#0A84FF", "#5E5CE6", "#BF5AF2",
+  "#FF375F", "#AC8E68",
+];
+
+const VIEW_ORDER = ["setup", "players", "reveal", "game", "voting", "gameover"];
+
+const state = {
+  config: { civilians: 3, undercovers: 1, mrWhite: 0 },
+  totalPlayers: 4,
+  difficulty: "All",
+  players: [], // { id, name, role, word, status }
+  words: { civilian: "", undercover: "", genre: "" },
+  revealIndex: 0,
+  revealOrder: [],
+  turnOrder: [],
+  currentTurnIndex: 0,
+  roundsElapsed: 0,
+  winner: null,
+  mrWhiteGuessing: null,
+  scores: loadScores(),
+  currentView: "setup",
+  timerInterval: null,
+  turnTime: 0,
+  recordedTimes: {},
+  savedNames: [],
+};
+
+/* ── Persistence ────────────────────────────────────────── */
+function loadScores() {
+  try {
+    return JSON.parse(localStorage.getItem("uc_scores") || "{}");
+  } catch {
+    return {};
+  }
+}
+function saveScores() {
+  localStorage.setItem("uc_scores", JSON.stringify(state.scores));
+}
+
+/* ── Utils ──────────────────────────────────────────────── */
+function escapeHTML(str) {
+  return String(str).replace(/[&<>'"]/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c])
+  );
+}
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function colorFor(id) {
+  return AVATAR_COLORS[id % AVATAR_COLORS.length];
+}
+function initial(name) {
+  return (name || "?").charAt(0).toUpperCase();
+}
+function $(id) {
+  return document.getElementById(id);
+}
+function avatarHTML(id, name, sizeClass = "") {
+  return `<div class="${sizeClass}" style="background:${colorFor(id)}">${escapeHTML(initial(name))}</div>`;
+}
+
+/* ── Views ──────────────────────────────────────────────── */
 const views = {
-  setup: document.getElementById('view-setup'),
-  players: document.getElementById('view-players'),
-  reveal: document.getElementById('view-reveal'),
-  game: document.getElementById('view-game'),
-  voting: document.getElementById('view-voting'),
-  gameover: document.getElementById('view-gameover')
+  setup: $("view-setup"),
+  players: $("view-players"),
+  reveal: $("view-reveal"),
+  game: $("view-game"),
+  voting: $("view-voting"),
+  gameover: $("view-gameover"),
 };
 
-// Setup Elements
-const elCivCount = document.getElementById('civilians-display');
-const elUndCount = document.getElementById('undercovers-display');
-const elMwCount = document.getElementById('mrwhite-display');
-const elTotalPlayers = document.getElementById('total-players');
-const elSetupWarning = document.getElementById('setup-warning');
+function switchView(name) {
+  if (state.currentView === name) return;
+  const prev = state.currentView;
+  const prevEl = views[prev];
+  const nextEl = views[name];
 
-// Setup Buttons
-document.getElementById('civilians-minus').addEventListener('click', () => updateConfig('civilians', -1));
-document.getElementById('civilians-plus').addEventListener('click', () => updateConfig('civilians', 1));
-document.getElementById('undercovers-minus').addEventListener('click', () => updateConfig('undercovers', -1));
-document.getElementById('undercovers-plus').addEventListener('click', () => updateConfig('undercovers', 1));
-document.getElementById('mrwhite-minus').addEventListener('click', () => updateConfig('mrwhite', -1));
-document.getElementById('mrwhite-plus').addEventListener('click', () => updateConfig('mrwhite', 1));
+  nextEl.hidden = false;
+  nextEl.classList.remove("active", "exit-left");
+  // force reflow for enter animation
+  void nextEl.offsetWidth;
+  nextEl.classList.add("active");
 
-document.getElementById('btn-next-players').addEventListener('click', goToPlayersView);
-
-// Players Elements
-const elPlayerInputsContainer = document.getElementById('player-inputs-container');
-document.getElementById('btn-back-setup').addEventListener('click', () => switchView('setup'));
-document.getElementById('btn-start-game').addEventListener('click', startGame);
-
-// Reveal Elements
-const elRevealPlayerName = document.getElementById('reveal-player-name');
-const elRevealPlayerNameInline = document.getElementById('reveal-player-name-inline');
-const elRevealCard = document.getElementById('reveal-card');
-const elRevealRoleTitle = document.getElementById('reveal-role-title');
-const elRevealWord = document.getElementById('reveal-word');
-const btnNextReveal = document.getElementById('btn-next-reveal');
-
-elRevealCard.addEventListener('click', revealCard);
-btnNextReveal.addEventListener('click', () => {
-  elRevealCard.classList.remove('flipped');
-  btnNextReveal.classList.add('invisible');
-  setTimeout(() => {
-    nextReveal();
-  }, 600);
-});
-
-// Game Elements
-const elCurrentPlayerTurn = document.getElementById('current-player-turn');
-const elLivingPlayersList = document.getElementById('living-players-list');
-document.getElementById('btn-next-turn').addEventListener('click', nextTurn);
-document.getElementById('btn-start-voting').addEventListener('click', goToVoting);
-document.getElementById('btn-new-game-top').addEventListener('click', resetToSetup);
-
-// Voting Elements
-const elVotingList = document.getElementById('voting-list');
-document.getElementById('btn-confirm-votes').addEventListener('click', confirmVotes);
-
-// Modals
-const modalMrWhite = document.getElementById('modal-mrwhite');
-const modalEliminated = document.getElementById('modal-eliminated');
-document.getElementById('btn-mrwhite-submit').addEventListener('click', submitMrWhiteGuess);
-document.getElementById('btn-continue-game').addEventListener('click', () => {
-  modalEliminated.classList.add('hidden');
-  checkWinCondition();
-});
-
-// Game Over Elements
-document.getElementById('btn-rematch').addEventListener('click', rematch);
-document.getElementById('btn-new-game-bottom').addEventListener('click', resetToSetup);
-
-
-// --- Functions ---
-
-function getTotalPlayers() {
-  return state.config.civilians + state.config.undercovers + state.config.mrWhite;
-}
-
-function updateConfig(role, change) {
-  if (role === 'civilians') {
-    state.config.civilians = Math.max(1, state.config.civilians + change);
-  } else if (role === 'undercovers') {
-    state.config.undercovers = Math.max(0, state.config.undercovers + change);
-  } else if (role === 'mrwhite') {
-    state.config.mrWhite = Math.max(0, state.config.mrWhite + change);
-  }
-  
-  elCivCount.textContent = state.config.civilians;
-  elUndCount.textContent = state.config.undercovers;
-  elMwCount.textContent = state.config.mrWhite;
-  
-  const total = getTotalPlayers();
-  elTotalPlayers.textContent = total;
-
-  // Validation
-  let isValid = true;
-  let warning = "";
-  if (total < 3) {
-    isValid = false;
-    warning = "Minimum 3 players required.";
-  } else if (state.config.civilians <= state.config.undercovers + state.config.mrWhite) {
-    isValid = false;
-    warning = "Civilians must outnumber special roles for balance.";
-  }
-
-  if (!isValid) {
-    elSetupWarning.textContent = warning;
-    elSetupWarning.classList.remove('hidden');
-    document.getElementById('btn-next-players').disabled = true;
-    document.getElementById('btn-next-players').style.opacity = '0.5';
-  } else {
-    elSetupWarning.classList.add('hidden');
-    document.getElementById('btn-next-players').disabled = false;
-    document.getElementById('btn-next-players').style.opacity = '1';
-  }
-}
-
-const VIEW_ORDER = ['setup', 'players', 'reveal', 'game', 'voting', 'gameover'];
-
-function switchView(viewName) {
-  const currentViewName = state.currentView;
-  if (currentViewName === viewName) return;
-
-  const currentViewEl = views[currentViewName];
-  const newViewEl = views[viewName];
-
-  const currentIdx = VIEW_ORDER.indexOf(currentViewName);
-  const newIdx = VIEW_ORDER.indexOf(viewName);
-  const isForward = newIdx > currentIdx;
-
-  // Position the new view offscreen before animating
-  newViewEl.classList.remove('hidden');
-  newViewEl.classList.remove('active');
-  if (isForward) {
-    newViewEl.classList.add('slide-right');
-    newViewEl.classList.remove('slide-left');
-  } else {
-    newViewEl.classList.add('slide-left');
-    newViewEl.classList.remove('slide-right');
-  }
-
-  // Use requestAnimationFrame to ensure initial position is rendered before animating
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      // Slide views in/out
-      if (isForward) {
-        currentViewEl.classList.remove('active');
-        currentViewEl.classList.add('slide-left');
-      } else {
-        currentViewEl.classList.remove('active');
-        currentViewEl.classList.add('slide-right');
+  if (prevEl) {
+    prevEl.classList.remove("active");
+    prevEl.classList.add("exit-left");
+    setTimeout(() => {
+      if (state.currentView === name) {
+        prevEl.hidden = true;
+        prevEl.classList.remove("exit-left");
       }
-      
-      newViewEl.classList.remove('slide-left');
-      newViewEl.classList.remove('slide-right');
-      newViewEl.classList.add('active');
+    }, 450);
+  }
+
+  state.currentView = name;
+}
+
+/* ── Setup ──────────────────────────────────────────────── */
+function syncSetupUI() {
+  $("civilians-display").textContent = state.config.civilians;
+  $("undercovers-display").textContent = state.config.undercovers;
+  $("mrwhite-display").textContent = state.config.mrWhite;
+  state.totalPlayers =
+    state.config.civilians + state.config.undercovers + state.config.mrWhite;
+  $("total-players").textContent = state.totalPlayers;
+  validateSetup();
+}
+
+function validateSetup() {
+  const total = state.totalPlayers;
+  const specials = state.config.undercovers + state.config.mrWhite;
+  const warn = $("setup-warning");
+  const btn = $("btn-next-players");
+  let msg = "";
+
+  if (total < 3) msg = "Need at least 3 players.";
+  else if (total > 12) msg = "Maximum 12 players for a single device.";
+  else if (state.config.undercovers + state.config.mrWhite < 1)
+    msg = "Add at least one Undercover or Mr. White.";
+  else if (state.config.civilians <= specials)
+    msg = "Civilians must outnumber special roles (classic balance).";
+
+  if (msg) {
+    warn.textContent = msg;
+    warn.classList.remove("hidden");
+    btn.disabled = true;
+  } else {
+    warn.classList.add("hidden");
+    btn.disabled = false;
+  }
+}
+
+function updateRole(role, delta) {
+  if (role === "civilians")
+    state.config.civilians = Math.max(1, state.config.civilians + delta);
+  else if (role === "undercovers")
+    state.config.undercovers = Math.max(0, state.config.undercovers + delta);
+  else if (role === "mrwhite")
+    state.config.mrWhite = Math.max(0, state.config.mrWhite + delta);
+  syncSetupUI();
+}
+
+function changeTotalPlayers(delta) {
+  const next = Math.min(12, Math.max(3, state.totalPlayers + delta));
+  if (next === state.totalPlayers) return;
+  // Prefer balanced preset when available
+  const preset = ROLE_PRESETS[next];
+  if (preset) {
+    state.config = { ...preset };
+  } else {
+    // Adjust civilians to match delta
+    state.config.civilians = Math.max(
+      1,
+      state.config.civilians + (next - state.totalPlayers)
+    );
+  }
+  syncSetupUI();
+}
+
+function applyPreset() {
+  const preset = ROLE_PRESETS[state.totalPlayers];
+  if (preset) {
+    state.config = { ...preset };
+    syncSetupUI();
+  }
+}
+
+/* ── Players ────────────────────────────────────────────── */
+function goToPlayers() {
+  const total = state.totalPlayers;
+  $("player-count-display").textContent = total;
+  const container = $("player-inputs-container");
+  container.innerHTML = "";
+
+  for (let i = 0; i < total; i++) {
+    const saved = state.savedNames[i] || "";
+    const row = document.createElement("div");
+    row.className = "name-row";
+    row.innerHTML = `
+      <span class="name-idx">${i + 1}</span>
+      <div class="name-avatar" style="background:${colorFor(i)}">${escapeHTML(
+      (saved || `P`).charAt(0).toUpperCase()
+    )}</div>
+      <input type="text" class="name-input player-name-input" value="${escapeHTML(
+        saved
+      )}" placeholder="Player ${i + 1}" maxlength="20" autocomplete="off" data-idx="${i}">
+    `;
+    container.appendChild(row);
+  }
+
+  container.querySelectorAll(".name-input").forEach((input) => {
+    input.addEventListener("input", () => {
+      const av = input.parentElement.querySelector(".name-avatar");
+      const v = input.value.trim();
+      av.textContent = (v || "P").charAt(0).toUpperCase();
     });
   });
 
-  const previousViewName = currentViewName;
-  setTimeout(() => {
-    if (state.currentView === viewName) {
-      const prevEl = views[previousViewName];
-      prevEl.classList.add('hidden');
-      prevEl.classList.remove('slide-left');
-      prevEl.classList.remove('slide-right');
-    }
-  }, 450);
-
-  state.currentView = viewName;
-
-  const btnThemeToggle = document.getElementById('btn-theme-toggle');
-  if (btnThemeToggle) {
-    if (viewName === 'setup') {
-      btnThemeToggle.classList.remove('hidden');
-    } else {
-      btnThemeToggle.classList.add('hidden');
-    }
-  }
+  $("players-warning").classList.add("hidden");
+  switchView("players");
 }
 
-function goToPlayersView() {
-  const total = getTotalPlayers();
-  document.getElementById('player-count-display').textContent = total;
-  
-  elPlayerInputsContainer.innerHTML = '';
-  for (let i = 0; i < total; i++) {
-    const customName = state.players[i] && !state.players[i].name.match(/^Player \d+$/) ? state.players[i].name : '';
-    elPlayerInputsContainer.innerHTML += `
-      <div class="name-input-row" style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-        <span style="font-weight: 700; color: var(--color-text-muted); width: 24px; text-align: right; font-size: 1.125rem;">${i + 1}.</span>
-        <input type="text" class="player-name-input" value="${customName}" placeholder="Player ${i + 1}" style="flex: 1;">
-      </div>
-    `;
-  }
-  
-  switchView('players');
-}
+/* ── Start game ─────────────────────────────────────────── */
+function startGame(useSavedNames = false) {
+  let names;
 
-function startGame() {
-  const inputs = document.querySelectorAll('.player-name-input');
-  const names = Array.from(inputs).map((input, idx) => input.value.trim() || `Player ${idx + 1}`);
-  
-  // Validate duplicate names
-  const nameSet = new Set();
-  let hasDuplicates = false;
-  for (let name of names) {
-    const normalized = name.toLowerCase();
-    if (nameSet.has(normalized)) {
-      hasDuplicates = true;
-      break;
-    }
-    nameSet.add(normalized);
-  }
-
-  const warningEl = document.getElementById('players-warning');
-  if (hasDuplicates) {
-    if (warningEl) {
-      warningEl.textContent = "Each player must have a unique name!";
-      warningEl.classList.remove('hidden');
-    }
-    return;
+  if (useSavedNames && state.savedNames.length === state.totalPlayers) {
+    names = [...state.savedNames];
   } else {
-    if (warningEl) {
-      warningEl.classList.add('hidden');
+    const inputs = document.querySelectorAll(".player-name-input");
+    if (!inputs.length && state.savedNames.length) {
+      names = [...state.savedNames];
+      // pad / trim
+      while (names.length < state.totalPlayers) names.push(`Player ${names.length + 1}`);
+      names = names.slice(0, state.totalPlayers);
+    } else {
+      names = Array.from(inputs).map(
+        (el, i) => el.value.trim() || `Player ${i + 1}`
+      );
     }
   }
-  
-  // Create deck
+
+  // Duplicate check
+  const seen = new Set();
+  for (const n of names) {
+    const key = n.toLowerCase();
+    if (seen.has(key)) {
+      const w = $("players-warning");
+      if (w) {
+        w.textContent = "Each player needs a unique name.";
+        w.classList.remove("hidden");
+      }
+      if (state.currentView !== "players") switchView("players");
+      return;
+    }
+    seen.add(key);
+  }
+
+  state.savedNames = [...names];
+
+  // Deck
   const deck = [];
-  for(let i=0; i<state.config.civilians; i++) deck.push(ROLES.CIVILIAN);
-  for(let i=0; i<state.config.undercovers; i++) deck.push(ROLES.UNDERCOVER);
-  for(let i=0; i<state.config.mrWhite; i++) deck.push(ROLES.MR_WHITE);
-  
-  shuffleArray(deck);
-  
-  const wordPair = getRandomWordPair();
-  state.words.civilian = wordPair.wordA;
-  state.words.undercover = wordPair.wordB;
+  for (let i = 0; i < state.config.civilians; i++) deck.push(ROLES.CIVILIAN);
+  for (let i = 0; i < state.config.undercovers; i++) deck.push(ROLES.UNDERCOVER);
+  for (let i = 0; i < state.config.mrWhite; i++) deck.push(ROLES.MR_WHITE);
+  shuffle(deck);
+
+  const pair = getRandomWordPair(state.difficulty);
+  state.words = {
+    civilian: pair.wordA,
+    undercover: pair.wordB,
+    genre: pair.genre,
+  };
 
   state.players = names.map((name, index) => {
     const role = deck[index];
-    let word = '';
+    let word = "";
     if (role === ROLES.CIVILIAN) word = state.words.civilian;
     else if (role === ROLES.UNDERCOVER) word = state.words.undercover;
-    else word = 'You are Mr. White';
+    else word = "—"; // Mr. White sees blank
 
-    return {
-      id: index,
-      name,
-      role,
-      word,
-      status: 'alive'
-    };
+    return { id: index, name, role, word, status: "alive" };
   });
+
+  // Ensure scores keys exist
+  names.forEach((n) => {
+    if (state.scores[n] === undefined) state.scores[n] = 0;
+  });
+
   state.roundsElapsed = 0;
   state.revealIndex = 0;
-  state.revealOrder = state.players.map(p => p.id);
-  shuffleArray(state.revealOrder);
+  state.revealOrder = shuffle(state.players.map((p) => p.id));
+  state.winner = null;
+  state.mrWhiteGuessing = null;
+  state.recordedTimes = {};
+
   setupReveal();
-  switchView('reveal');
+  switchView("reveal");
 }
 
+/* ── Reveal ─────────────────────────────────────────────── */
 function setupReveal() {
-  elRevealCard.classList.remove('flipped');
-  btnNextReveal.classList.add('invisible');
-  
-  const currentRevealId = state.revealOrder[state.revealIndex];
-  const player = state.players.find(p => p.id === currentRevealId);
-  elRevealPlayerName.textContent = player.name;
-  elRevealPlayerNameInline.textContent = player.name;
-  
-  if (player.role === ROLES.MR_WHITE) {
-    elRevealRoleTitle.textContent = "Your Role";
-  } else {
-    elRevealRoleTitle.textContent = "Your Word";
+  const card = $("reveal-card");
+  card.classList.remove("flipped");
+  $("btn-next-reveal").classList.add("invisible");
+
+  const pid = state.revealOrder[state.revealIndex];
+  const player = state.players.find((p) => p.id === pid);
+
+  $("reveal-player-name").textContent = player.name;
+
+  // Progress pips
+  const prog = $("reveal-progress");
+  prog.innerHTML = state.players
+    .map(
+      (_, i) =>
+        `<span class="pip ${
+          i < state.revealIndex ? "done" : i === state.revealIndex ? "current" : ""
+        }"></span>`
+    )
+    .join("");
+
+  const chip = $("reveal-role-chip");
+  const genreEl = $("reveal-genre");
+  if (genreEl) {
+    genreEl.textContent = state.words.genre ? `Category: ${state.words.genre}` : "";
   }
-  elRevealWord.textContent = player.word;
+
+  if (player.role === ROLES.MR_WHITE) {
+    $("reveal-role-title").textContent = "Your role";
+    $("reveal-word").textContent = "Mr. White";
+    chip.textContent = "No word — listen carefully";
+    chip.className = "secret-chip role-mrwhite";
+  } else {
+    $("reveal-role-title").textContent = "Your word";
+    $("reveal-word").textContent = player.word;
+    // Intentionally do NOT show "Civilian" vs "Undercover" — classic rule:
+    // players only see their word, not their team label.
+    chip.textContent = "Memorize, then hide";
+    chip.className = "secret-chip";
+  }
 }
 
 function revealCard() {
-  if (!elRevealCard.classList.contains('flipped')) {
-    elRevealCard.classList.add('flipped');
-    setTimeout(() => {
-      btnNextReveal.classList.remove('invisible');
-    }, 600);
-  }
+  const card = $("reveal-card");
+  if (card.classList.contains("flipped")) return;
+  card.classList.add("flipped");
+  setTimeout(() => $("btn-next-reveal").classList.remove("invisible"), 550);
 }
 
 function nextReveal() {
-  state.revealIndex++;
-  if (state.revealIndex < state.players.length) {
-    setupReveal();
-  } else {
-    startCluePhase();
-  }
+  $("reveal-card").classList.remove("flipped");
+  $("btn-next-reveal").classList.add("invisible");
+  setTimeout(() => {
+    state.revealIndex++;
+    if (state.revealIndex < state.players.length) setupReveal();
+    else startCluePhase();
+  }, 280);
 }
 
+/* ── Clue / Now Playing ─────────────────────────────────── */
 function startCluePhase() {
   state.roundsElapsed++;
-  const living = state.players.filter(p => p.status === 'alive');
-  state.turnOrder = living.map(p => p.id);
-  shuffleArray(state.turnOrder);
+  const living = state.players.filter((p) => p.status === "alive");
+  state.turnOrder = shuffle(living.map((p) => p.id));
   state.currentTurnIndex = 0;
-  
+  state.recordedTimes = {};
   updateGameView();
-  switchView('game');
+  switchView("game");
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
 function updateGameView() {
   const currentId = state.turnOrder[state.currentTurnIndex];
-  const currentPlayer = state.players.find(p => p.id === currentId);
-  elCurrentPlayerTurn.textContent = currentPlayer.name;
+  const current = state.players.find((p) => p.id === currentId);
+  const living = state.players.filter((p) => p.status === "alive");
+  const eliminated = state.players.filter((p) => p.status === "eliminated");
 
-  // Timer logic
+  $("round-number").textContent = state.roundsElapsed;
+  $("current-player-turn").textContent = current.name;
+
+  const av = $("current-avatar");
+  av.textContent = initial(current.name);
+  av.style.background = colorFor(current.id);
+  // re-trigger animation
+  av.style.animation = "none";
+  void av.offsetWidth;
+  av.style.animation = "";
+
+  // Timer
   clearInterval(state.timerInterval);
   state.turnTime = 0;
-  const elTimer = document.getElementById('turn-timer');
-  if (elTimer) elTimer.textContent = '00:00';
+  const updateTimerDisplays = () => {
+    const timeStr = formatTime(state.turnTime);
+    const liveRosterTimer = $("roster-live-timer");
+    if (liveRosterTimer) liveRosterTimer.textContent = timeStr;
+  };
+  updateTimerDisplays();
   state.timerInterval = setInterval(() => {
     state.turnTime++;
-    if (elTimer) {
-      const mins = Math.floor(state.turnTime / 60).toString().padStart(2, '0');
-      const secs = (state.turnTime % 60).toString().padStart(2, '0');
-      elTimer.textContent = `${mins}:${secs}`;
-    }
+    updateTimerDisplays();
   }, 1000);
 
-  const living = state.players.filter(p => p.status === 'alive');
-  elLivingPlayersList.innerHTML = living.map(p => {
-    const color = avatarColors[p.id % avatarColors.length];
-    const initial = p.name.charAt(0).toUpperCase();
-    return `
-    <li style="padding: 16px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 16px; border-radius: var(--radius-md); background: var(--color-bg); border: 1px solid var(--color-border);">
-       <div style="width: 40px; height: 40px; border-radius: 50%; background: ${color}; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem;">${escapeHTML(initial)}</div>
-       <span style="font-size: 1.125rem; font-weight: 600;">${escapeHTML(p.name)}</span>
-    </li>
-  `}).join('');
-  
-  const eliminated = state.players.filter(p => p.status === 'eliminated');
-  const elEliminatedCard = document.getElementById('eliminated-players-card');
-  const elEliminatedList = document.getElementById('eliminated-players-list');
-  if (elEliminatedCard && elEliminatedList) {
-    if (eliminated.length > 0) {
-      elEliminatedCard.style.display = 'block';
-      elEliminatedList.innerHTML = eliminated.map(p => {
-        const color = avatarColors[p.id % avatarColors.length];
-        const initial = p.name.charAt(0).toUpperCase();
-        return `
-        <li style="padding: 16px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 16px; border-radius: var(--radius-md); background: var(--color-bg); border: 1px solid var(--color-border);">
-           <div style="width: 40px; height: 40px; border-radius: 50%; background: ${color}; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem;">${escapeHTML(initial)}</div>
-           <span style="font-size: 1.125rem; font-weight: 600; text-decoration: line-through; opacity: 0.7;">${escapeHTML(p.name)}</span>
-        </li>
-      `}).join('');
-    } else {
-      elEliminatedCard.style.display = 'none';
-    }
+  // Turn strip
+  const strip = $("turn-strip");
+  strip.innerHTML = state.turnOrder
+    .map((id, idx) => {
+      const p = state.players.find((x) => x.id === id);
+      let cls = "turn-chip";
+      if (idx < state.currentTurnIndex) cls += " done";
+      if (idx === state.currentTurnIndex) cls += " active";
+      const recTime = state.recordedTimes[p.id];
+      const timeDisplay =
+        recTime !== undefined
+          ? `<span class="tc-time">${formatTime(recTime)}</span>`
+          : idx === state.currentTurnIndex
+          ? `<span class="tc-time">Speaking</span>`
+          : "";
+      return `
+        <div class="${cls}" role="listitem">
+          <div class="tc-avatar" style="background:${colorFor(p.id)}">${escapeHTML(
+            initial(p.name)
+          )}</div>
+          <span class="tc-name">${escapeHTML(p.name)}</span>
+          ${timeDisplay}
+        </div>`;
+    })
+    .join("");
+
+  // Living roster
+  $("alive-count").textContent = `${living.length} alive`;
+  $("living-players-list").innerHTML = living
+    .map((p) => {
+      const speaking = p.id === currentId;
+      const recTime = state.recordedTimes[p.id];
+      let badgeHTML = "";
+      if (speaking) {
+        badgeHTML = `<span class="ri-badge"><span class="ri-dot"></span> NOW <span id="roster-live-timer" class="ri-timer">0:00</span></span>`;
+      } else if (recTime !== undefined) {
+        badgeHTML = `<span class="ri-time-record">⏱️ ${formatTime(recTime)}</span>`;
+      }
+      return `
+      <li class="roster-item ${speaking ? "speaking" : ""}">
+        <div class="ri-avatar" style="background:${colorFor(p.id)}">${escapeHTML(
+          initial(p.name)
+        )}</div>
+        <span class="ri-name">${escapeHTML(p.name)}</span>
+        ${badgeHTML}
+      </li>`;
+    })
+    .join("");
+
+  // Eliminated
+  const block = $("eliminated-block");
+  if (eliminated.length) {
+    block.classList.remove("hidden");
+    $("eliminated-players-list").innerHTML = eliminated
+      .map(
+        (p) => `
+      <li class="roster-item">
+        <div class="ri-avatar" style="background:${colorFor(p.id)}">${escapeHTML(
+          initial(p.name)
+        )}</div>
+        <span class="ri-name">${escapeHTML(p.name)}</span>
+        <span class="role-tag ${roleClass(p.role)}">${escapeHTML(p.role)}</span>
+      </li>`
+      )
+      .join("");
+  } else {
+    block.classList.add("hidden");
   }
-  
-  const isLast = state.currentTurnIndex === state.turnOrder.length - 1;
-  document.getElementById('btn-next-turn').classList.toggle('hidden', isLast);
-  document.getElementById('btn-start-voting').classList.toggle('hidden', !isLast);
+
+  const isLast = state.currentTurnIndex >= state.turnOrder.length - 1;
+  $("btn-next-turn").classList.toggle("hidden", isLast);
+  $("btn-start-voting").classList.toggle("hidden", !isLast);
+}
+
+function roleClass(role) {
+  if (role === ROLES.CIVILIAN) return "civilian";
+  if (role === ROLES.UNDERCOVER) return "undercover";
+  return "mrwhite";
 }
 
 function nextTurn() {
-  state.currentTurnIndex++;
-  updateGameView();
+  const currentId = state.turnOrder[state.currentTurnIndex];
+  if (currentId !== undefined) {
+    state.recordedTimes[currentId] = state.turnTime;
+  }
+  if (state.currentTurnIndex < state.turnOrder.length - 1) {
+    state.currentTurnIndex++;
+    updateGameView();
+  }
 }
 
+/* ── Voting ─────────────────────────────────────────────── */
 function goToVoting() {
   clearInterval(state.timerInterval);
-  const living = state.players.filter(p => p.status === 'alive');
-  
-  const maxVotesDisplay = document.getElementById('max-votes-display');
-  if (maxVotesDisplay) maxVotesDisplay.textContent = living.length - 1;
-
-  elVotingList.innerHTML = living.map(p => `
-    <div class="voting-item">
-      <span class="voting-name">${escapeHTML(p.name)}</span>
-      <div class="counter">
-        <button class="btn-icon vote-minus" data-id="${p.id}">-</button>
-        <span class="vote-count" id="vote-${p.id}">0</span>
-        <button class="btn-icon vote-plus" data-id="${p.id}">+</button>
-      </div>
-    </div>
-  `).join('');
-
-  document.querySelectorAll('.vote-minus').forEach(btn => {
-    btn.addEventListener('click', () => updateVote(btn.dataset.id, -1));
-  });
-  document.querySelectorAll('.vote-plus').forEach(btn => {
-    btn.addEventListener('click', () => updateVote(btn.dataset.id, 1));
-  });
-
-  const callout = document.getElementById('voting-callout');
-  if (callout) {
-    callout.classList.add('hidden');
-    callout.className = 'callout hidden';
+  const currentId = state.turnOrder[state.currentTurnIndex];
+  if (currentId !== undefined && state.turnTime > 0) {
+    state.recordedTimes[currentId] = state.turnTime;
   }
+  const living = state.players.filter((p) => p.status === "alive");
+  $("vote-round-number").textContent = state.roundsElapsed;
+  $("votes-needed").textContent = living.length;
+  $("votes-cast").textContent = "0";
+  $("vote-meter-fill").style.width = "0%";
 
-  switchView('voting');
+  const list = $("voting-list");
+  list.innerHTML = living
+    .map(
+      (p) => `
+    <div class="vote-row" data-id="${p.id}">
+      <div class="vr-avatar" style="background:${colorFor(p.id)}">${escapeHTML(
+        initial(p.name)
+      )}</div>
+      <span class="vr-name">${escapeHTML(p.name)}</span>
+      <div class="vote-controls">
+        <button type="button" class="vote-minus" data-id="${p.id}" aria-label="Remove vote">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </button>
+        <span class="vote-count" id="vote-${p.id}">0</span>
+        <button type="button" class="vote-plus" data-id="${p.id}" aria-label="Add vote">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+    </div>`
+    )
+    .join("");
+
+  list.querySelectorAll(".vote-minus").forEach((btn) =>
+    btn.addEventListener("click", () => changeVote(btn.dataset.id, -1))
+  );
+  list.querySelectorAll(".vote-plus").forEach((btn) =>
+    btn.addEventListener("click", () => changeVote(btn.dataset.id, 1))
+  );
+
+  const callout = $("voting-callout");
+  callout.classList.add("hidden");
+  callout.className = "inline-alert hidden";
+
+  switchView("voting");
 }
 
-function updateVote(id, change) {
-  const el = document.getElementById(`vote-${id}`);
-  let val = parseInt(el.textContent);
-  val = Math.max(-1, val + change);
-  el.textContent = val;
+function changeVote(id, delta) {
+  const el = $(`vote-${id}`);
+  if (!el) return;
+  const living = state.players.filter((p) => p.status === "alive").length;
+  let val = parseInt(el.textContent, 10) || 0;
+  let newTargetVal = val + delta;
+
+  // Calculate current total votes cast excluding this player's target
+  const map = getVoteMap();
+  let currentTotalOtherVotes = 0;
+  Object.keys(map).forEach((pId) => {
+    if (String(pId) !== String(id)) {
+      currentTotalOtherVotes += Math.abs(map[pId]);
+    }
+  });
+
+  const potentialTotal = currentTotalOtherVotes + Math.abs(newTargetVal);
+
+  if (delta > 0 && potentialTotal > living) {
+    showVoteAlert(
+      `Cannot cast ${potentialTotal} votes. Total votes cannot exceed the number of living players (${living}).`,
+      "warn"
+    );
+    return;
+  }
+
+  if (newTargetVal > living - 1) {
+    showVoteAlert(`A player can receive at most ${living - 1} votes.`, "warn");
+    newTargetVal = living - 1;
+  } else if (newTargetVal < -1) {
+    showVoteAlert("A player can receive at most -1 negative vote.", "warn");
+    newTargetVal = -1;
+  } else {
+    if (currentTotalOtherVotes + Math.abs(newTargetVal) <= living) {
+      $("voting-callout").classList.add("hidden");
+    }
+  }
+
+  el.textContent = newTargetVal;
+  el.classList.toggle("hot", newTargetVal > 0);
+  refreshVoteMeter();
+  highlightLeader();
+}
+
+function getVoteMap() {
+  const living = state.players.filter((p) => p.status === "alive");
+  const map = {};
+  living.forEach((p) => {
+    map[p.id] = parseInt($(`vote-${p.id}`).textContent, 10) || 0;
+  });
+  return map;
+}
+
+function refreshVoteMeter() {
+  const living = state.players.filter((p) => p.status === "alive").length;
+  const map = getVoteMap();
+  const cast = Object.values(map).reduce((a, b) => a + Math.abs(b), 0);
+  $("votes-cast").textContent = cast;
+  $("votes-needed").textContent = living;
+  const fill = $("vote-meter-fill");
+  const label = document.querySelector(".vote-meter-label");
+  const pct = living ? Math.min(100, (cast / living) * 100) : 0;
+  fill.style.width = `${pct}%`;
+
+  if (cast > living) {
+    if (fill) fill.classList.add("over-budget");
+    if (label) label.classList.add("over-budget");
+    showVoteAlert(
+      `Warning: ${cast} votes cast exceeds total living players (${living}). Excess votes cannot be cast.`,
+      "warn"
+    );
+  } else {
+    if (fill) fill.classList.remove("over-budget");
+    if (label) label.classList.remove("over-budget");
+  }
+}
+
+function highlightLeader() {
+  const map = getVoteMap();
+  let max = -1;
+  Object.values(map).forEach((v) => {
+    if (v > max) max = v;
+  });
+  document.querySelectorAll(".vote-row").forEach((row) => {
+    const id = row.dataset.id;
+    const v = map[id] || 0;
+    row.classList.toggle("leading", max > 0 && v === max);
+  });
+}
+
+function showVoteAlert(msg, type = "") {
+  const el = $("voting-callout");
+  el.textContent = msg;
+  el.className = `inline-alert ${type}`.trim();
+  el.classList.remove("hidden");
 }
 
 function confirmVotes() {
-  const living = state.players.filter(p => p.status === 'alive');
+  const living = state.players.filter((p) => p.status === "alive");
+  const map = getVoteMap();
+  const totalVotes = Object.values(map).reduce((a, b) => a + Math.abs(b), 0);
+
+  if (totalVotes > living.length) {
+    showVoteAlert(
+      `Cannot confirm: ${totalVotes} votes cast exceeds total living players (${living.length}). Please adjust votes.`,
+      "warn"
+    );
+    return;
+  }
+
+  if (totalVotes !== living.length) {
+    showVoteAlert(
+      `Cast exactly ${living.length} vote${living.length === 1 ? "" : "s"} (one per living player). Currently ${totalVotes}.`,
+      "warn"
+    );
+    return;
+  }
+
   let maxVotes = -Infinity;
   let candidates = [];
-  let totalAbsoluteVotes = 0;
-  
-  living.forEach(p => {
-    const votes = parseInt(document.getElementById(`vote-${p.id}`).textContent);
-    totalAbsoluteVotes += Math.abs(votes);
-    if (votes > maxVotes) {
-      maxVotes = votes;
+  living.forEach((p) => {
+    const v = map[p.id];
+    if (v > maxVotes) {
+      maxVotes = v;
       candidates = [p];
-    } else if (votes === maxVotes) {
+    } else if (v === maxVotes) {
       candidates.push(p);
     }
   });
 
-  const callout = document.getElementById('voting-callout');
-  if (callout) {
-    callout.classList.add('hidden');
-    callout.className = 'callout hidden'; // reset class
-  }
-  
-  if (maxVotes > living.length - 1) {
-    if (callout) {
-      callout.className = 'callout callout-warning';
-      callout.innerHTML = `No single player can receive more than <strong>${living.length - 1}</strong> votes!`;
-      callout.classList.remove('hidden');
-    }
+  if (maxVotes <= 0) {
+    showVoteAlert("Someone must receive at least one positive vote to be eliminated.", "warn");
     return;
   }
-
-  if (totalAbsoluteVotes !== living.length) {
-    if (callout) {
-      callout.className = 'callout callout-warning';
-      callout.innerHTML = `Please make sure everyone has voted!<br>Expected <strong>${living.length}</strong> total absolute votes, but counted <strong>${totalAbsoluteVotes}</strong>.`;
-      callout.classList.remove('hidden');
-    }
-    return;
-  }
-
-  // Deduct negative votes from total score
-  living.forEach(p => {
-    const votes = parseInt(document.getElementById(`vote-${p.id}`).textContent);
-    if (votes < 0) {
-      state.scores[p.name] = (state.scores[p.name] || 0) + votes;
-    }
-  });
 
   if (candidates.length > 1) {
-    const names = candidates.map(c => escapeHTML(c.name)).join(', ');
-    if (callout) {
-      callout.className = 'callout callout-danger';
-      callout.innerHTML = `It's a tie between: <strong>${names}</strong>!<br>The tied players must each give one more clue. Then, please adjust your votes and confirm again.`;
-    }
+    const names = candidates.map((c) => c.name).join(", ");
+    showVoteAlert(
+      `Tie between ${names}. They each give one more clue, then re-vote.`,
+      "info"
+    );
     return;
   }
 
-  const eliminatedPlayer = candidates[0];
-  eliminatedPlayer.status = 'eliminated';
+  eliminatePlayer(candidates[0]);
+}
 
-  if (eliminatedPlayer.role === ROLES.MR_WHITE) {
-    // Mr White guessing logic
-    state.mrWhiteGuessing = eliminatedPlayer;
-    document.getElementById('mrwhite-player-name').textContent = eliminatedPlayer.name;
-    document.getElementById('mrwhite-guess-input').value = '';
-    document.getElementById('mrwhite-feedback').textContent = '';
-    modalMrWhite.classList.remove('hidden');
+function eliminatePlayer(player) {
+  player.status = "eliminated";
+
+  if (player.role === ROLES.MR_WHITE) {
+    state.mrWhiteGuessing = player;
+    $("mrwhite-player-name").textContent = player.name;
+    $("mrwhite-guess-input").value = "";
+    $("mrwhite-feedback").textContent = "";
+    openModal("modal-mrwhite");
+    setTimeout(() => $("mrwhite-guess-input").focus(), 300);
   } else {
-    // Regular elimination
-    document.getElementById('eliminated-title').textContent = `${eliminatedPlayer.name} is Voted Out!`;
-    document.getElementById('eliminated-role-info').textContent = `They were a ${eliminatedPlayer.role}.`;
-    modalEliminated.classList.remove('hidden');
+    $("eliminated-title").textContent = `${player.name} is out`;
+    $("eliminated-role-info").textContent = `They were a ${player.role}.`;
+    $("elim-icon").textContent = player.role === ROLES.UNDERCOVER ? "🕵️" : "✕";
+    openModal("modal-eliminated");
   }
+}
+
+/* ── Mr. White guess ────────────────────────────────────── */
+function normalizeWord(s) {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+/** Simple Levenshtein for near-miss tolerance (1 edit for short words). */
+function editDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+function isCorrectGuess(guess, target) {
+  const g = normalizeWord(guess);
+  const t = normalizeWord(target);
+  if (!g) return false;
+  if (g === t) return true;
+  // Allow singular/plural-ish & small typos
+  if (t.startsWith(g) || g.startsWith(t)) {
+    if (Math.abs(t.length - g.length) <= 2) return true;
+  }
+  const maxDist = t.length <= 4 ? 0 : t.length <= 7 ? 1 : 2;
+  return editDistance(g, t) <= maxDist;
 }
 
 function submitMrWhiteGuess() {
-  const guess = document.getElementById('mrwhite-guess-input').value.trim().toLowerCase();
-  if (!guess) return;
-  
-  const civilianWord = state.words.civilian.toLowerCase();
-  
-  modalMrWhite.classList.add('hidden');
-  
-  // Very basic string matching (can be improved with distance algo if needed)
-  if (civilianWord === guess || civilianWord.includes(guess) || guess.includes(civilianWord)) {
-    endGame(ROLES.MR_WHITE);
+  const guess = $("mrwhite-guess-input").value;
+  if (!normalizeWord(guess)) {
+    $("mrwhite-feedback").textContent = "Enter a guess.";
+    return;
+  }
+
+  closeModal("modal-mrwhite");
+
+  if (isCorrectGuess(guess, state.words.civilian)) {
+    endGame(ROLES.MR_WHITE, "Mr. White guessed the civilian word.");
   } else {
-    document.getElementById('eliminated-title').textContent = `${state.mrWhiteGuessing.name} Guessed Wrong!`;
-    document.getElementById('eliminated-role-info').textContent = `They were Mr. White.`;
-    modalEliminated.classList.remove('hidden');
+    $("eliminated-title").textContent = `${state.mrWhiteGuessing.name} guessed wrong`;
+    $("eliminated-role-info").textContent = `They were Mr. White. The word was “${state.words.civilian}”.`;
+    $("elim-icon").textContent = "✗";
+    openModal("modal-eliminated");
   }
 }
 
+/* ── Win checks ─────────────────────────────────────────── */
+/**
+ * Classic rules:
+ * - Civilians win when no Undercovers and no Mr. White remain.
+ * - Impostors win when living specials >= living civilians
+ *   (Undercovers + surviving Mr. White count as specials).
+ * - Mr. White solo win only via correct word guess on elimination.
+ */
 function checkWinCondition() {
-  const living = state.players.filter(p => p.status === 'alive');
-  const livingCivilians = living.filter(p => p.role === ROLES.CIVILIAN).length;
-  const livingOthers = living.length - livingCivilians;
-  
-  if (livingOthers === 0) {
-    endGame(ROLES.CIVILIAN);
-  } else if (livingOthers >= livingCivilians) {
-    endGame(ROLES.UNDERCOVER);
+  const living = state.players.filter((p) => p.status === "alive");
+  const civs = living.filter((p) => p.role === ROLES.CIVILIAN).length;
+  const unders = living.filter((p) => p.role === ROLES.UNDERCOVER).length;
+  const whites = living.filter((p) => p.role === ROLES.MR_WHITE).length;
+  const specials = unders + whites;
+
+  if (specials === 0) {
+    endGame(ROLES.CIVILIAN, "All impostors were eliminated.");
+  } else if (specials >= civs) {
+    // Undercovers take over; surviving Mr. White shares the win thematically
+    if (unders > 0) {
+      endGame(
+        ROLES.UNDERCOVER,
+        whites > 0
+          ? "Impostors equaled civilians — Undercovers win (Mr. White survived)."
+          : "Undercovers equaled or outnumbered the civilians."
+      );
+    } else {
+      // Only Mr. White left as special and matched civs — rare edge
+      endGame(
+        ROLES.UNDERCOVER,
+        "Mr. White survived until the impostors matched the town."
+      );
+    }
   } else {
-    // Game continues
     startCluePhase();
   }
 }
 
-function endGame(winnerRole) {
+/* ── End game / Leaderboard ─────────────────────────────── */
+function addScore(name, pts) {
+  state.scores[name] = (state.scores[name] || 0) + pts;
+}
+
+function endGame(winnerRole, reason) {
+  clearInterval(state.timerInterval);
   state.winner = winnerRole;
-  
-  const title = document.getElementById('gameover-winner');
-  const reason = document.getElementById('gameover-reason');
-  
+
+  const badge = $("go-badge");
+  const title = $("gameover-winner");
+  const reasonEl = $("gameover-reason");
+
   if (winnerRole === ROLES.CIVILIAN) {
-    title.textContent = "Civilians Win!";
-    reason.textContent = "All imposters were eliminated.";
-    state.players.filter(p => p.role === ROLES.CIVILIAN).forEach(p => {
-      state.scores[p.name] = (state.scores[p.name] || 0) + 2;
-    });
+    badge.textContent = "Civilian victory";
+    badge.className = "go-badge civilian";
+    title.textContent = "Civilians win";
+    reasonEl.textContent = reason;
+    state.players
+      .filter((p) => p.role === ROLES.CIVILIAN)
+      .forEach((p) => {
+        addScore(p.name, SCORE.CIVILIAN_WIN);
+        if (p.status === "alive") addScore(p.name, SCORE.SURVIVAL_BONUS);
+      });
   } else if (winnerRole === ROLES.UNDERCOVER) {
-    title.textContent = "Undercovers Win!";
-    reason.textContent = "The Undercovers took over.";
-    state.players.filter(p => p.role === ROLES.UNDERCOVER).forEach(p => {
-      state.scores[p.name] = (state.scores[p.name] || 0) + 10;
-    });
+    badge.textContent = "Undercover victory";
+    badge.className = "go-badge undercover";
+    title.textContent = "Undercovers win";
+    reasonEl.textContent = reason;
+    state.players
+      .filter((p) => p.role === ROLES.UNDERCOVER)
+      .forEach((p) => addScore(p.name, SCORE.UNDERCOVER_WIN));
+    // Surviving Mr. White gets partial credit (aligned with shared impostor win)
+    state.players
+      .filter((p) => p.role === ROLES.MR_WHITE && p.status === "alive")
+      .forEach((p) => addScore(p.name, SCORE.MR_WHITE_SURVIVE_WITH_UC));
   } else if (winnerRole === ROLES.MR_WHITE) {
-    title.textContent = "Mr. White Wins!";
-    reason.textContent = "Mr. White guessed the word correctly.";
-    state.players.filter(p => p.role === ROLES.MR_WHITE).forEach(p => {
-      state.scores[p.name] = (state.scores[p.name] || 0) + 6;
-    });
+    badge.textContent = "Mr. White victory";
+    badge.className = "go-badge mrwhite";
+    title.textContent = "Mr. White wins";
+    reasonEl.textContent = reason;
+    state.players
+      .filter((p) => p.role === ROLES.MR_WHITE)
+      .forEach((p) => addScore(p.name, SCORE.MR_WHITE_WIN));
   }
 
-  // Ensure all players have at least 0 score in the state
-  state.players.forEach(p => {
-    if (state.scores[p.name] === undefined) {
-      state.scores[p.name] = 0;
-    }
+  state.players.forEach((p) => {
+    if (state.scores[p.name] === undefined) state.scores[p.name] = 0;
   });
+  saveScores();
 
-  const recapList = document.getElementById('recap-list');
-  recapList.innerHTML = state.players.map(p => {
-    const isAlive = p.status === 'alive';
-    const color = avatarColors[p.id % avatarColors.length];
-    const initial = p.name.charAt(0).toUpperCase();
-    return `
-    <div class="recap-row ${isAlive ? '' : 'eliminated'}">
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div style="width: 44px; height: 44px; border-radius: 50%; background: ${color}; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem;">${escapeHTML(initial)}</div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-weight: 700; font-size: 1.125rem;">${escapeHTML(p.name)}</span>
-          <span style="font-size: 0.9rem; color: var(--color-text-muted);">${escapeHTML(p.role)} &bull; <strong>${escapeHTML(p.word)}</strong></span>
-        </div>
-      </div>
-      <span class="recap-status-badge ${isAlive ? 'alive' : 'dead'}">${escapeHTML(p.status.toUpperCase())}</span>
-    </div>
-  `}).join('');
+  $("go-rounds").textContent = state.roundsElapsed;
+  $("go-pair").textContent = `${state.words.civilian} / ${state.words.undercover}`;
 
-  const statsContainer = document.getElementById('gameover-stats');
-  if (statsContainer) {
-    statsContainer.innerHTML = `<p style="font-weight: 600; text-align: center; margin-bottom: 24px; font-size: 1rem; color: var(--color-text-muted);">It took <span style="color: var(--color-danger); font-weight: 800; font-size: 1.125rem; margin: 0 4px;">${state.roundsElapsed}</span> voting cycles to complete the game.</p>`;
-  }
+  renderLeaderboard();
+  renderRecap();
+  switchView("gameover");
+}
 
-  const leaderboardList = document.getElementById('leaderboard-list');
-  if (leaderboardList) {
-    const sortedScores = Object.entries(state.scores).sort((a, b) => b[1] - a[1]);
-    leaderboardList.innerHTML = sortedScores.map(([name, score], index) => {
-      let medal = '';
-      if (index === 0) medal = '🥇';
-      else if (index === 1) medal = '🥈';
-      else if (index === 2) medal = '🥉';
-      const p = state.players.find(pl => pl.name === name) || state.players[0]; // fallback
-      const color = avatarColors[p.id % avatarColors.length];
-      
-      const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : '';
-      const rankBadgeHtml = medal 
-        ? `<span class="rank-badge">${medal}</span>` 
-        : `<span class="rank-num">${index + 1}</span>`;
-      const initial = name.charAt(0).toUpperCase();
+function renderLeaderboard() {
+  const sorted = state.players
+    .map((p) => [p.name, state.scores[p.name] || 0])
+    .sort((a, b) => b[1] - a[1]);
 
+  const podium = $("podium");
+  const top3 = sorted.slice(0, 3);
+  const slots = [];
+  if (top3[0]) slots.push({ entry: top3[0], rank: 1, cls: "gold", medal: "🥇" });
+  if (top3[1]) slots.push({ entry: top3[1], rank: 2, cls: "silver", medal: "🥈" });
+  if (top3[2]) slots.push({ entry: top3[2], rank: 3, cls: "bronze", medal: "🥉" });
+
+  // DOM order: silver | gold | bronze for classic podium
+  const visual = [
+    slots.find((s) => s.rank === 2),
+    slots.find((s) => s.rank === 1),
+    slots.find((s) => s.rank === 3),
+  ].filter(Boolean);
+
+  podium.innerHTML = visual
+    .map((s) => {
+      const [name, pts] = s.entry;
+      const p = state.players.find((x) => x.name === name);
+      const id = p ? p.id : 0;
       return `
-        <div class="leaderboard-row ${rankClass}">
-          <div style="display: flex; align-items: center; gap: 16px;">
-            <div class="rank-badge-wrapper">${rankBadgeHtml}</div>
-            <div style="width: 44px; height: 44px; border-radius: 50%; background: ${color}; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.25rem;">${escapeHTML(initial)}</div>
-            <span style="font-weight: 700; font-size: 1.125rem;">${escapeHTML(name)}</span>
+        <div class="podium-slot ${s.cls}">
+          <div class="p-avatar-wrap">
+            <div class="p-avatar" style="background:${colorFor(id)}">${escapeHTML(
+              initial(name)
+            )}</div>
+            <span class="p-badge">${s.medal}</span>
           </div>
-          <span class="points-badge">${score} pts</span>
+          <span class="p-name">${escapeHTML(name)}</span>
+          <span class="p-pts">${pts} pts</span>
+          <div class="p-pedestal">
+            <span class="p-rank">${s.rank}</span>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  // Full list (everyone)
+  const lb = $("leaderboard-list");
+  lb.innerHTML = sorted
+    .map(([name, score], index) => {
+      const p = state.players.find((x) => x.name === name);
+      const id = p ? p.id : index;
+      const rankClass = index === 0 ? "gold" : index === 1 ? "silver" : index === 2 ? "bronze" : "";
+      return `
+        <div class="lb-row ${rankClass}">
+          <span class="lb-rank">${index + 1}</span>
+          <div class="lb-avatar" style="background:${colorFor(id)}">${escapeHTML(
+            initial(name)
+          )}</div>
+          <span class="lb-name">${escapeHTML(name)}</span>
+          <span class="lb-pts">${score} pts</span>
+        </div>`;
+    })
+    .join("");
+}
+
+function renderRecap() {
+  $("recap-list").innerHTML = state.players
+    .map((p) => {
+      const alive = p.status === "alive";
+      const wordDisplay =
+        p.role === ROLES.MR_WHITE ? "no word" : p.word;
+      return `
+      <div class="recap-row ${alive ? "" : "out"}">
+        <div class="recap-avatar" style="background:${colorFor(p.id)}">${escapeHTML(
+          initial(p.name)
+        )}</div>
+        <div class="recap-info">
+          <span class="ri-name">${escapeHTML(p.name)}</span>
+          <span class="ri-detail">
+            <span class="role-tag ${roleClass(p.role)}">${escapeHTML(p.role)}</span>
+            · <strong>${escapeHTML(wordDisplay)}</strong>
+          </span>
         </div>
-      `;
-    }).join('');
-  }
-
-  switchView('gameover');
+        <span class="status-pill ${alive ? "alive" : "dead"}">${
+          alive ? "Alive" : "Out"
+        }</span>
+      </div>`;
+    })
+    .join("");
 }
 
+/* ── Modals ─────────────────────────────────────────────── */
+function openModal(id) {
+  $(id).hidden = false;
+}
+function closeModal(id) {
+  $(id).hidden = true;
+}
+
+/* ── Reset / rematch ────────────────────────────────────── */
 function rematch() {
-  // Reset statuses
-  startGame(); // Generates new roles and words, keeps names
+  // Keep names, config, scores — new roles & words
+  startGame(true);
 }
 
-// Utility
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+function resetToSetup(clearScores = false) {
+  clearInterval(state.timerInterval);
+  if (clearScores) {
+    state.scores = {};
+    saveScores();
   }
-}
-
-// Init
-updateConfig('none', 0);
-
-// Accordion Toggle
-const accordionCard = document.getElementById('how-to-play-card');
-const accordionToggle = document.getElementById('how-to-play-toggle');
-if (accordionToggle && accordionCard) {
-  accordionToggle.addEventListener('click', () => {
-    accordionCard.classList.toggle('expanded');
-  });
-}
-
-// Theme Toggle Logic
-const btnThemeToggle = document.getElementById('btn-theme-toggle');
-
-// Determine initial theme: check localStorage, fallback to OS system preferences
-let initialTheme = localStorage.getItem('theme');
-if (!initialTheme) {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  initialTheme = prefersDark ? 'dark' : 'light';
-}
-document.documentElement.setAttribute('data-theme', initialTheme);
-
-if (btnThemeToggle) {
-  btnThemeToggle.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-  });
-}
-
-// Live listener: sync theme automatically if user hasn't explicitly set a custom preference
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-  if (!localStorage.getItem('theme')) {
-    const newTheme = e.matches ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', newTheme);
-  }
-});
-
-// Service Worker Registration for PWA Support
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('Service Worker registered', reg))
-      .catch(err => console.error('Service Worker registration failed', err));
-  });
-}
-
-function resetToSetup() {
-  // 1. Reset state
-  state.config.civilians = 3;
-  state.config.undercovers = 1;
-  state.config.mrWhite = 0;
   state.players = [];
-  state.words = { civilian: '', undercover: '' };
+  state.words = { civilian: "", undercover: "", genre: "" };
   state.revealIndex = 0;
   state.turnOrder = [];
   state.winner = null;
   state.mrWhiteGuessing = null;
-  state.scores = {};
   state.roundsElapsed = 0;
-  state.revealOrder = [];
-  clearInterval(state.timerInterval);
-  state.turnTime = 0;
-
-  // 2. Sync setup view counters
-  elCivCount.textContent = state.config.civilians;
-  elUndCount.textContent = state.config.undercovers;
-  elMwCount.textContent = state.config.mrWhite;
-  elTotalPlayers.textContent = '4';
-  
-  const setupWarning = document.getElementById('setup-warning');
-  if (setupWarning) {
-    setupWarning.textContent = '';
-    setupWarning.classList.add('hidden');
-  }
-
-  const btnNextPlayers = document.getElementById('btn-next-players');
-  if (btnNextPlayers) {
-    btnNextPlayers.disabled = false;
-    btnNextPlayers.style.opacity = '1';
-  }
-
-  // 3. Smooth transition slide (backward)
-  switchView('setup');
+  // Keep config & saved names for convenience
+  syncSetupUI();
+  switchView("setup");
 }
+
+/* ── Theme ──────────────────────────────────────────────── */
+function initTheme() {
+  let theme = localStorage.getItem("uc_theme");
+  if (!theme) {
+    theme = window.matchMedia("(prefers-color-scheme: light)").matches
+      ? "light"
+      : "dark";
+  }
+  document.documentElement.setAttribute("data-theme", theme);
+  updateThemeColor(theme);
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("uc_theme", next);
+  updateThemeColor(next);
+}
+
+function updateThemeColor(theme) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "light" ? "#F2F2F7" : "#0A0A0C");
+}
+
+/* ── Wire events ────────────────────────────────────────── */
+function bind() {
+  // Setup counters
+  $("players-minus").addEventListener("click", () => changeTotalPlayers(-1));
+  $("players-plus").addEventListener("click", () => changeTotalPlayers(1));
+  $("btn-apply-preset").addEventListener("click", applyPreset);
+
+  $("civilians-minus").addEventListener("click", () => updateRole("civilians", -1));
+  $("civilians-plus").addEventListener("click", () => updateRole("civilians", 1));
+  $("undercovers-minus").addEventListener("click", () => updateRole("undercovers", -1));
+  $("undercovers-plus").addEventListener("click", () => updateRole("undercovers", 1));
+  $("mrwhite-minus").addEventListener("click", () => updateRole("mrwhite", -1));
+  $("mrwhite-plus").addEventListener("click", () => updateRole("mrwhite", 1));
+
+  $("btn-next-players").addEventListener("click", goToPlayers);
+  $("btn-back-setup").addEventListener("click", () => switchView("setup"));
+  $("btn-start-game").addEventListener("click", () => startGame(false));
+
+  $("reveal-card").addEventListener("click", revealCard);
+  $("btn-next-reveal").addEventListener("click", nextReveal);
+
+  $("btn-next-turn").addEventListener("click", nextTurn);
+  $("btn-start-voting").addEventListener("click", goToVoting);
+  $("btn-back-clues").addEventListener("click", () => {
+    updateGameView();
+    switchView("game");
+  });
+  $("btn-confirm-votes").addEventListener("click", confirmVotes);
+
+  $("btn-finish-game").addEventListener("click", () => openModal("modal-confirm-end"));
+  $("btn-cancel-end").addEventListener("click", () => closeModal("modal-confirm-end"));
+  $("btn-confirm-end").addEventListener("click", () => {
+    closeModal("modal-confirm-end");
+    resetToSetup(false);
+  });
+
+  $("btn-mrwhite-submit").addEventListener("click", submitMrWhiteGuess);
+  $("mrwhite-guess-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") submitMrWhiteGuess();
+  });
+  $("btn-continue-game").addEventListener("click", () => {
+    closeModal("modal-eliminated");
+    checkWinCondition();
+  });
+
+  $("btn-rematch").addEventListener("click", rematch);
+  $("btn-new-game").addEventListener("click", () => resetToSetup(false));
+  $("btn-reset-scores").addEventListener("click", () => {
+    if (confirm("Reset all saved scores?")) {
+      state.scores = {};
+      state.players.forEach((p) => (state.scores[p.name] = 0));
+      saveScores();
+      renderLeaderboard();
+    }
+  });
+
+  $("btn-theme").addEventListener("click", toggleTheme);
+
+  // Difficulty
+  $("difficulty-picker").addEventListener("click", (e) => {
+    const btn = e.target.closest(".seg-btn");
+    if (!btn) return;
+    $("difficulty-picker").querySelectorAll(".seg-btn").forEach((b) =>
+      b.classList.remove("active")
+    );
+    btn.classList.add("active");
+    state.difficulty = btn.dataset.diff;
+  });
+}
+
+/* ── PWA ────────────────────────────────────────────────── */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+
+/* ── Boot ───────────────────────────────────────────────── */
+initTheme();
+bind();
+// Default 4-player balanced: 3 civ, 1 und, 0 white
+state.config = { ...ROLE_PRESETS[4] };
+syncSetupUI();

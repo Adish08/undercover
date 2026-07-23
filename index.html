@@ -1,266 +1,398 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Undercover - Social Deduction Party Game</title>
-  <meta name="description" content="Play Undercover - the ultimate social deduction party game. Find the undercover agent and Mr. White before they take over!">
-  <meta name="theme-color" content="#ff4757">
-  
-  <!-- Apple Mobile Web App Metas -->
+  <title>Undercover — Social Deduction</title>
+  <meta name="description" content="Find the undercover agent. A polished social deduction party game — pass one device, give clever clues, vote wisely.">
+  <meta name="theme-color" content="#0A0A0C" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Undercover">
-  
-  <!-- Open Graph / Social Graph -->
-  <meta property="og:title" content="Undercover - Social Deduction Party Game">
-  <meta property="og:description" content="Play Undercover with friends. Find the undercover agent and Mr. White before they take over!">
+  <meta property="og:title" content="Undercover — Social Deduction">
+  <meta property="og:description" content="Find the undercover agent before they take over. Elegant pass-and-play party game.">
   <meta property="og:type" content="website">
-  
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon-192.png" type="image/png">
-  <link rel="apple-touch-icon" href="icon-192.png">
   <meta property="og:image" content="icon-512.png">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:image" content="icon-512.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div id="app-container">
-
-    <!-- View: Setup -->
-    <section id="view-setup" class="view active">
-      <header>
-        <h1>Undercover</h1>
-        <p class="subtitle">The social deduction game</p>
-        <button id="btn-theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">
-          <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-          <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-        </button>
-      </header>
-      <div class="content">
-        <div class="card glass-panel">
-          <h2>Game Setup</h2>
-          
-          <div class="input-group">
-            <label for="civilians-count">Civilians</label>
-            <div class="counter">
-              <button id="civilians-minus" class="btn-icon">-</button>
-              <span id="civilians-display">3</span>
-              <button id="civilians-plus" class="btn-icon">+</button>
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label for="undercovers-count">Undercovers</label>
-            <div class="counter">
-              <button id="undercovers-minus" class="btn-icon">-</button>
-              <span id="undercovers-display">1</span>
-              <button id="undercovers-plus" class="btn-icon">+</button>
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label for="mrwhite-count">Mr. White</label>
-            <div class="counter">
-              <button id="mrwhite-minus" class="btn-icon">-</button>
-              <span id="mrwhite-display">0</span>
-              <button id="mrwhite-plus" class="btn-icon">+</button>
-            </div>
-          </div>
-          
-          <div class="summary">
-            Total Players: <span id="total-players" class="highlight-civ">4</span>
-          </div>
-          <div id="setup-warning" class="warning hidden"></div>
-        </div>
-
-        <!-- How to Play Card -->
-        <div class="card accordion" id="how-to-play-card">
-          <div class="accordion-header" id="how-to-play-toggle">
-            <h3>How to Play</h3>
-            <svg class="arrow-icon" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div class="accordion-content" id="how-to-play-content">
-            <p><span class="highlight-civ">Civilians</span> receive the same word. <span class="highlight-und">Undercovers</span> receive a similar word. <span class="highlight-white">Mr. White</span> gets no word.</p>
-            <p>Players take turns giving a one-word or short sentence clue about their word. Don't make it too obvious!</p>
-            <p>After clues, discuss and vote for who you think is Undercover or Mr. White.</p>
-            <p>Civilians win if they vote out all non-civilians. Undercovers win if they survive. Mr. White wins if they guess the civilian word after being voted out!</p>
-          </div>
-        </div>
-
-      </div>
-      <footer>
-        <button id="btn-next-players" class="btn-primary">
-          <span>Next</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </footer>
-    </section>
-
-    <!-- View: Players -->
-    <section id="view-players" class="view hidden">
-      <header>
-        <button id="btn-back-setup" class="btn-text">← Back</button>
-        <h1>Player Names</h1>
-      </header>
-      <div class="content">
-        <div class="card glass-panel">
-          <p class="instructions" style="margin-bottom: 24px;">Enter names for <span id="player-count-display">5</span> players.</p>
-          <div id="player-inputs-container">
-            <!-- Dynamically populated -->
-          </div>
-          <div id="players-warning" class="warning hidden" style="margin-top: 16px;"></div>
-        </div>
-      </div>
-      <footer>
-        <button id="btn-start-game" class="btn-primary">
-          <span>Start Game</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </footer>
-    </section>
-
-    <!-- View: Reveal -->
-    <section id="view-reveal" class="view hidden">
-      <div class="content centered">
-        <h2 id="reveal-player-name">Player Name</h2>
-        <p class="instructions">Pass the device to <span id="reveal-player-name-inline"></span>. Everyone else, look away!</p>
-        
-        <div class="flip-card-container" id="reveal-card">
-          <div class="flip-card-inner">
-            <div class="flip-card-front">
-              <p>Tap to Reveal Role</p>
-            </div>
-            <div class="flip-card-back">
-              <h3 id="reveal-role-title">Your Word</h3>
-              <p id="reveal-word" class="secret-word">APPLE</p>
-            </div>
-          </div>
-        </div>
-        
-        <button id="btn-next-reveal" class="btn-primary invisible" style="width: auto; padding-left: 32px; padding-right: 32px; margin: 0 auto; display: block;">Got it, Hide</button>
-      </div>
-    </section>
-
-    <!-- View: Game (Clue Phase) -->
-    <section id="view-game" class="view hidden">
-      <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1 style="margin: 0;">Clue Phase</h1>
-        <button id="btn-new-game-top" class="btn-text danger" aria-label="Finish Game" title="Finish Game" style="margin: 0; white-space: nowrap; font-size: 0.95rem; font-weight: 700; padding: 4px 8px;">Finish Game</button>
-      </header>
-      <div class="content">
-        <div class="card current-turn glass-panel">
-          <div class="turn-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h2 style="margin: 0;">Current Turn</h2>
-            <div class="timer-badge" style="display: flex; align-items: center; background: rgba(255, 71, 87, 0.1); color: var(--color-primary); padding: 4px 10px; border-radius: 12px; font-weight: 700; font-size: 0.9rem;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span id="turn-timer">00:00</span>
-            </div>
-          </div>
-          <h3 id="current-player-turn">Player Name</h3>
-          <p>Describe your word without saying it.</p>
-        </div>
-        <div class="card">
-          <h3>Living Players</h3>
-          <ul id="living-players-list" class="player-list">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-        <div class="card" id="eliminated-players-card" style="display: none; margin-top: 24px; opacity: 0.6;">
-          <h3>Eliminated</h3>
-          <ul id="eliminated-players-list" class="player-list">
-            <!-- Dynamically populated -->
-          </ul>
-        </div>
-      </div>
-      <footer>
-        <button id="btn-next-turn" class="btn-primary">
-          <span>Next Player</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-        <button id="btn-start-voting" class="btn-primary hidden">
-          <span>Go to Voting</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-arrow"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </footer>
-    </section>
-
-    <!-- View: Voting -->
-    <section id="view-voting" class="view hidden">
-      <header>
-        <h1>Voting Phase</h1>
-        <p class="subtitle">Discuss and cast your votes</p>
-        <p class="vote-note" id="vote-limit-note" style="font-size: 0.85rem; color: var(--color-text-muted); text-align: center; margin-top: 8px;">Note: A single player can receive at most <strong id="max-votes-display">3</strong> votes. Max negative vote is -1.</p>
-      </header>
-      <div class="content">
-        <div id="voting-callout" class="callout hidden" style="margin-bottom: 24px;"></div>
-        <div id="voting-list" class="card list">
-          <!-- Dynamically populated -->
-        </div>
-      </div>
-      <footer>
-        <button id="btn-confirm-votes" class="btn-primary">Confirm Votes</button>
-      </footer>
-    </section>
-
-    <!-- Modal: Mr White Guess -->
-    <div id="modal-mrwhite" class="modal hidden">
-      <div class="modal-content">
-        <h2>Mr. White Eliminated!</h2>
-        <p><span id="mrwhite-player-name"></span>, you are Mr. White. Guess the civilian word to win.</p>
-        <input type="text" id="mrwhite-guess-input" placeholder="Enter word here..." autocomplete="off">
-        <div id="mrwhite-feedback" class="feedback"></div>
-        <button id="btn-mrwhite-submit" class="btn-primary">Submit Guess</button>
-      </div>
+  <div id="app">
+    <!-- Ambient background orbs -->
+    <div class="ambient" aria-hidden="true">
+      <div class="orb orb-a"></div>
+      <div class="orb orb-b"></div>
+      <div class="orb orb-c"></div>
     </div>
 
-    <!-- Modal: Eliminated Reveal -->
-    <div id="modal-eliminated" class="modal hidden">
-      <div class="modal-content">
-        <h2 id="eliminated-title">Player Voted Out</h2>
-        <p id="eliminated-role-info">They were a Civilian.</p>
-        <button id="btn-continue-game" class="btn-primary">Continue</button>
-      </div>
-    </div>
-
-    <!-- View: Game Over -->
-    <section id="view-gameover" class="view hidden">
-      <header>
-        <h1 id="gameover-winner">Civilians Win!</h1>
-        <p id="gameover-reason" class="subtitle">All undercovers eliminated.</p>
+    <!-- ════════════ SETUP ════════════ -->
+    <section id="view-setup" class="view active" data-view="setup">
+      <header class="view-header">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+              <circle cx="14" cy="14" r="6" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="14" cy="14" r="2" fill="currentColor"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="brand-title">Undercover</h1>
+            <p class="brand-sub">Social deduction · Pass &amp; play</p>
+          </div>
+        </div>
+        <button id="btn-theme" class="icon-btn" aria-label="Toggle theme" type="button">
+          <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
       </header>
-      <div class="content" style="gap: 24px;">
-        <div id="gameover-stats"></div>
-        
-        <div class="gameover-section">
-          <div class="section-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"/></svg>
+
+      <div class="view-body">
+        <!-- Player count + smart presets -->
+        <div class="panel">
+          <div class="panel-label">Players</div>
+          <div class="player-stepper">
+            <button type="button" class="step-btn" id="players-minus" aria-label="Fewer players">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+            </button>
+            <div class="player-count-display">
+              <span id="total-players">4</span>
+              <span class="count-unit">players</span>
+            </div>
+            <button type="button" class="step-btn" id="players-plus" aria-label="More players">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+          <button type="button" id="btn-apply-preset" class="chip-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3z"/></svg>
+            Use balanced preset
+          </button>
+        </div>
+
+        <!-- Role mix -->
+        <div class="panel">
+          <div class="panel-label">Role mix</div>
+          <div class="role-rows">
+            <div class="role-row">
+              <div class="role-meta">
+                <span class="role-dot civilian"></span>
+                <div>
+                  <div class="role-name">Civilians</div>
+                  <div class="role-hint">Same secret word</div>
+                </div>
+              </div>
+              <div class="mini-counter">
+                <button type="button" id="civilians-minus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                </button>
+                <span id="civilians-display">3</span>
+                <button type="button" id="civilians-plus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-meta">
+                <span class="role-dot undercover"></span>
+                <div>
+                  <div class="role-name">Undercovers</div>
+                  <div class="role-hint">Similar word — blend in</div>
+                </div>
+              </div>
+              <div class="mini-counter">
+                <button type="button" id="undercovers-minus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                </button>
+                <span id="undercovers-display">1</span>
+                <button type="button" id="undercovers-plus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="role-row">
+              <div class="role-meta">
+                <span class="role-dot mrwhite"></span>
+                <div>
+                  <div class="role-name">Mr. White</div>
+                  <div class="role-hint">No word — bluff &amp; guess</div>
+                </div>
+              </div>
+              <div class="mini-counter">
+                <button type="button" id="mrwhite-minus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg>
+                </button>
+                <span id="mrwhite-display">0</span>
+                <button type="button" id="mrwhite-plus" class="mini-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="setup-warning" class="inline-alert hidden" role="alert"></div>
+        </div>
+
+        <!-- Difficulty -->
+        <div class="panel">
+          <div class="panel-label">Word difficulty</div>
+          <div class="segmented" id="difficulty-picker" role="tablist">
+            <button type="button" class="seg-btn active" data-diff="All">Any</button>
+            <button type="button" class="seg-btn" data-diff="Easy">Easy</button>
+            <button type="button" class="seg-btn" data-diff="Medium">Medium</button>
+            <button type="button" class="seg-btn" data-diff="Hard">Hard</button>
+          </div>
+        </div>
+
+        <!-- How to play -->
+        <details class="howto panel">
+          <summary>
+            <span>How to play</span>
+            <svg class="chev" width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </summary>
+          <div class="howto-body">
+            <div class="howto-step">
+              <span class="howto-n">1</span>
+              <p><strong class="t-civ">Civilians</strong> share one word. <strong class="t-und">Undercovers</strong> get a close cousin. <strong class="t-white">Mr. White</strong> gets nothing.</p>
+            </div>
+            <div class="howto-step">
+              <span class="howto-n">2</span>
+              <p>Take turns giving a short clue about your word — clever, not obvious.</p>
+            </div>
+            <div class="howto-step">
+              <span class="howto-n">3</span>
+              <p>Discuss, then vote someone out. Roles are revealed on elimination.</p>
+            </div>
+            <div class="howto-step">
+              <span class="howto-n">4</span>
+              <p><strong class="t-civ">Civilians</strong> win by clearing all impostors. <strong class="t-und">Undercovers</strong> win when they equal or outnumber civilians. <strong class="t-white">Mr. White</strong> wins by guessing the civilian word when voted out.</p>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <footer class="view-footer">
+        <button type="button" id="btn-next-players" class="btn btn-primary">
+          Continue
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ════════════ PLAYERS ════════════ -->
+    <section id="view-players" class="view" data-view="players" hidden>
+      <header class="view-header compact">
+        <button type="button" id="btn-back-setup" class="back-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+          Setup
+        </button>
+        <h1 class="page-title">Names</h1>
+        <p class="page-sub"><span id="player-count-display">5</span> agents at the table</p>
+      </header>
+      <div class="view-body">
+        <div class="panel" id="player-inputs-container"></div>
+        <div id="players-warning" class="inline-alert hidden" role="alert"></div>
+      </div>
+      <footer class="view-footer">
+        <button type="button" id="btn-start-game" class="btn btn-primary">
+          Deal roles
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ════════════ REVEAL ════════════ -->
+    <section id="view-reveal" class="view" data-view="reveal" hidden>
+      <div class="reveal-stage">
+        <div class="reveal-progress" id="reveal-progress" aria-hidden="true"></div>
+        <p class="reveal-pass">Pass the device to</p>
+        <h2 id="reveal-player-name" class="reveal-name">Player</h2>
+        <p class="reveal-hint">Everyone else — look away</p>
+
+        <button type="button" class="secret-card" id="reveal-card" aria-label="Tap to reveal your role">
+          <div class="secret-card-inner">
+            <div class="secret-face secret-front">
+              <div class="secret-glyph">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <span>Tap to reveal</span>
+            </div>
+            <div class="secret-face secret-back">
+              <span id="reveal-role-title" class="secret-label">Your word</span>
+              <span id="reveal-word" class="secret-word">—</span>
+              <span id="reveal-genre" class="secret-genre"></span>
+              <span id="reveal-role-chip" class="secret-chip">Civilian</span>
+            </div>
+          </div>
+        </button>
+
+        <button type="button" id="btn-next-reveal" class="btn btn-primary invisible">
+          Got it — hide
+        </button>
+      </div>
+    </section>
+
+    <!-- ════════════ NOW PLAYING (Clue) ════════════ -->
+    <section id="view-game" class="view" data-view="game" hidden>
+      <header class="play-header">
+        <div class="play-top">
+          <div class="round-pill">
+            <span class="round-dot"></span>
+            Round <span id="round-number">1</span>
+          </div>
+          <button type="button" id="btn-finish-game" class="text-danger">End</button>
+        </div>
+        <div class="phase-tabs" aria-hidden="true">
+          <span class="phase-tab active">Clues</span>
+          <span class="phase-tab">Vote</span>
+        </div>
+      </header>
+
+      <div class="view-body play-body">
+        <!-- Spotlight current speaker -->
+        <div class="spotlight panel" id="spotlight">
+          <div class="spotlight-label">Speaking now</div>
+          <div class="spotlight-avatar" id="current-avatar">A</div>
+          <h2 id="current-player-turn" class="spotlight-name">Player</h2>
+          <p class="spotlight-prompt">One short clue about your word — no saying it.</p>
+        </div>
+
+        <!-- Turn order strip -->
+        <div class="turn-strip-wrap">
+          <div class="panel-label tight">Speaking order</div>
+          <div class="turn-strip" id="turn-strip" role="list"></div>
+        </div>
+
+        <!-- Living roster -->
+        <div class="roster">
+          <div class="roster-head">
+            <span class="panel-label tight">In play</span>
+            <span class="roster-count" id="alive-count">0 alive</span>
+          </div>
+          <ul class="roster-list" id="living-players-list"></ul>
+        </div>
+
+        <div class="roster eliminated-block hidden" id="eliminated-block">
+          <div class="roster-head">
+            <span class="panel-label tight">Eliminated</span>
+          </div>
+          <ul class="roster-list muted" id="eliminated-players-list"></ul>
+        </div>
+      </div>
+
+      <footer class="view-footer dual">
+        <button type="button" id="btn-next-turn" class="btn btn-primary">
+          Next speaker
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <button type="button" id="btn-start-voting" class="btn btn-primary hidden">
+          Open voting
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </button>
+      </footer>
+    </section>
+
+    <!-- ════════════ VOTING ════════════ -->
+    <section id="view-voting" class="view" data-view="voting" hidden>
+      <header class="play-header">
+        <div class="play-top">
+          <div class="round-pill vote">
+            <span class="round-dot"></span>
+            Vote · Round <span id="vote-round-number">1</span>
+          </div>
+          <button type="button" id="btn-back-clues" class="text-muted">← Clues</button>
+        </div>
+        <h1 class="page-title">Who is out?</h1>
+        <p class="page-sub">Tap + / − to tally votes. Highest is eliminated. One vote per living player.</p>
+      </header>
+
+      <div class="view-body">
+        <div id="voting-callout" class="inline-alert hidden" role="alert"></div>
+        <div class="vote-meter">
+          <div class="vote-meter-bar"><div id="vote-meter-fill" class="vote-meter-fill"></div></div>
+          <div class="vote-meter-label"><span id="votes-cast">0</span> / <span id="votes-needed">0</span> votes cast</div>
+        </div>
+        <div class="panel vote-panel" id="voting-list"></div>
+      </div>
+
+      <footer class="view-footer">
+        <button type="button" id="btn-confirm-votes" class="btn btn-primary">
+          Confirm elimination
+        </button>
+      </footer>
+    </section>
+
+    <!-- ════════════ GAME OVER ════════════ -->
+    <section id="view-gameover" class="view" data-view="gameover" hidden>
+      <header class="go-header">
+        <div id="go-badge" class="go-badge civilian">Victory</div>
+        <h1 id="gameover-winner" class="go-title">Civilians Win</h1>
+        <p id="gameover-reason" class="go-reason">All impostors eliminated.</p>
+        <p class="go-meta">Resolved in <strong id="go-rounds">1</strong> round · <span id="go-pair"></span></p>
+      </header>
+
+      <div class="view-body">
+        <!-- Podium leaderboard -->
+        <div class="section-block">
+          <div class="section-head">
             <h3>Leaderboard</h3>
+            <button type="button" id="btn-reset-scores" class="text-muted tiny">Reset scores</button>
           </div>
-          <div id="leaderboard-list">
-            <!-- Dynamically populated -->
-          </div>
+          <div class="podium" id="podium"></div>
+          <div class="lb-list" id="leaderboard-list"></div>
         </div>
 
-        <div class="gameover-section">
-          <div class="section-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--color-primary); flex-shrink: 0;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            <h3>Game Recap</h3>
+        <!-- Recap -->
+        <div class="section-block">
+          <div class="section-head">
+            <h3>Round recap</h3>
           </div>
-          <div id="recap-list">
-            <!-- Dynamically populated -->
-          </div>
+          <div class="recap-list" id="recap-list"></div>
         </div>
       </div>
-      <footer>
-        <button id="btn-rematch" class="btn-primary">Next Round</button>
-        <button id="btn-new-game-bottom" class="btn-secondary">Return to Setup</button>
+
+      <footer class="view-footer dual">
+        <button type="button" id="btn-rematch" class="btn btn-primary">Next round</button>
+        <button type="button" id="btn-new-game" class="btn btn-secondary">New game</button>
       </footer>
     </section>
 
+    <!-- ════════════ MODALS ════════════ -->
+    <div id="modal-mrwhite" class="modal" hidden>
+      <div class="modal-sheet" role="dialog" aria-labelledby="mw-title">
+        <div class="modal-icon mw">?</div>
+        <h2 id="mw-title">Mr. White eliminated</h2>
+        <p><strong id="mrwhite-player-name">Player</strong>, guess the civilian word to win instantly.</p>
+        <input type="text" id="mrwhite-guess-input" class="field" placeholder="Type your guess…" autocomplete="off" autocapitalize="words">
+        <div id="mrwhite-feedback" class="field-hint"></div>
+        <button type="button" id="btn-mrwhite-submit" class="btn btn-primary">Submit guess</button>
+      </div>
+    </div>
+
+    <div id="modal-eliminated" class="modal" hidden>
+      <div class="modal-sheet" role="dialog" aria-labelledby="elim-title">
+        <div class="modal-icon elim" id="elim-icon">✕</div>
+        <h2 id="eliminated-title">Voted out</h2>
+        <p id="eliminated-role-info">They were a Civilian.</p>
+        <button type="button" id="btn-continue-game" class="btn btn-primary">Continue</button>
+      </div>
+    </div>
+
+    <div id="modal-confirm-end" class="modal" hidden>
+      <div class="modal-sheet" role="dialog">
+        <h2>End this game?</h2>
+        <p>Scores for this round won’t be awarded. Leaderboard history stays.</p>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-end" class="btn btn-secondary">Keep playing</button>
+          <button type="button" id="btn-confirm-end" class="btn btn-danger">End game</button>
+        </div>
+      </div>
+    </div>
   </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
