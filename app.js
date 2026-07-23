@@ -58,12 +58,105 @@ function escapeHTML(str) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[c])
   );
 }
+/* ── Cryptographic Randomness (CSPRNG) & Fair Role Distribution ── */
+function secureRandomInt(max) {
+  if (max <= 0) return 0;
+  const array = new Uint32Array(1);
+  if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(array);
+  } else if (typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues(array);
+  } else {
+    array[0] = Math.floor(Math.random() * max);
+  }
+  return array[0] % max;
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = secureRandomInt(i + 1);
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+const STORAGE_KEY_ROLE_HISTORY = "undercover_role_history_v2";
+
+function loadRoleHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ROLE_HISTORY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveRoleHistory(history) {
+  try {
+    localStorage.setItem(STORAGE_KEY_ROLE_HISTORY, JSON.stringify(history));
+  } catch (e) {}
+}
+
+function clearRoleHistory() {
+  try {
+    localStorage.removeItem(STORAGE_KEY_ROLE_HISTORY);
+  } catch (e) {}
+}
+
+/**
+ * Robust Cryptographic Random Role Allocation with Light Anti-Loop Guard.
+ * Uses Web Crypto API (CSPRNG) Fisher-Yates shuffle.
+ * Allows pure random back-to-back role repeats (e.g. 2x in a row for fun),
+ * but prevents a player from getting stuck in a 3+ game loop.
+ */
+function allocateFairRoles(playerNames, config) {
+  const history = loadRoleHistory();
+
+  // Create base role deck
+  const deck = [];
+  for (let i = 0; i < config.civilians; i++) deck.push(ROLES.CIVILIAN);
+  for (let i = 0; i < config.undercovers; i++) deck.push(ROLES.UNDERCOVER);
+  for (let i = 0; i < config.mrWhite; i++) deck.push(ROLES.MR_WHITE);
+
+  // Pure Cryptographic Fisher-Yates Shuffle using Web Crypto API
+  shuffle(deck);
+
+  // Light Anti-Loop Guard: Prevent 3+ consecutive games as Undercover/Mr.White for the same player
+  playerNames.forEach((name, idx) => {
+    const key = name.trim().toLowerCase();
+    const stats = history[key] || { streak: 0 };
+    const isAssignedSpecial = deck[idx] !== ROLES.CIVILIAN;
+
+    // If player has already been special 2 games in a row, and is assigned special again (3rd time)
+    if (stats.streak >= 2 && isAssignedSpecial) {
+      // Find a civilian slot to swap with
+      const swapIdx = deck.findIndex((role, i) => {
+        if (role !== ROLES.CIVILIAN) return false;
+        const otherKey = playerNames[i].trim().toLowerCase();
+        const otherStats = history[otherKey] || { streak: 0 };
+        return (otherStats.streak || 0) < 2;
+      });
+
+      if (swapIdx !== -1) {
+        [deck[idx], deck[swapIdx]] = [deck[swapIdx], deck[idx]];
+      }
+    }
+  });
+
+  // Update history streak count
+  playerNames.forEach((name, idx) => {
+    const key = name.trim().toLowerCase();
+    const stats = history[key] || { streak: 0 };
+    if (deck[idx] !== ROLES.CIVILIAN) {
+      stats.streak = (stats.streak || 0) + 1;
+    } else {
+      stats.streak = 0; // reset streak when player gets Civilian
+    }
+    history[key] = stats;
+  });
+
+  saveRoleHistory(history);
+  return deck;
 }
 function colorFor(id) {
   return AVATAR_COLORS[id % AVATAR_COLORS.length];
@@ -257,12 +350,8 @@ function startGame(useSavedNames = false) {
 
   state.savedNames = [...names];
 
-  // Deck
-  const deck = [];
-  for (let i = 0; i < state.config.civilians; i++) deck.push(ROLES.CIVILIAN);
-  for (let i = 0; i < state.config.undercovers; i++) deck.push(ROLES.UNDERCOVER);
-  for (let i = 0; i < state.config.mrWhite; i++) deck.push(ROLES.MR_WHITE);
-  shuffle(deck);
+  // Science-Backed Fair Role Assignment (CSPRNG + Anti-Streak Balance)
+  const assignedRoles = allocateFairRoles(names, state.config);
 
   const pair = getRandomWordPair(state.difficulty);
   state.words = {
@@ -272,7 +361,7 @@ function startGame(useSavedNames = false) {
   };
 
   state.players = names.map((name, index) => {
-    const role = deck[index];
+    const role = assignedRoles[index];
     let word = "";
     if (role === ROLES.CIVILIAN) word = state.words.civilian;
     else if (role === ROLES.UNDERCOVER) word = state.words.undercover;
@@ -973,6 +1062,7 @@ function resetToSetup(clearScores = false) {
     state.scores = {};
     saveScores();
   }
+  clearRoleHistory(); // Clear role streak history when creating a new game
   state.players = [];
   state.words = { civilian: "", undercover: "", genre: "" };
   state.revealIndex = 0;
@@ -987,6 +1077,7 @@ function resetToSetup(clearScores = false) {
 
 /* ── Theme ──────────────────────────────────────────────── */
 function initTheme() {
+  clearRoleHistory(); // Clear role streak history on page refresh/boot
   let theme = localStorage.getItem("uc_theme");
   if (!theme) {
     theme = window.matchMedia("(prefers-color-scheme: light)").matches
@@ -1041,10 +1132,20 @@ function bind() {
 
   $("btn-finish-game").addEventListener("click", () => openModal("modal-confirm-end"));
   $("btn-cancel-end").addEventListener("click", () => closeModal("modal-confirm-end"));
-  $("btn-confirm-end").addEventListener("click", () => {
-    closeModal("modal-confirm-end");
-    resetToSetup(false);
-  });
+  const btnNewDeal = $("btn-new-words-deal");
+  if (btnNewDeal) {
+    btnNewDeal.addEventListener("click", () => {
+      closeModal("modal-confirm-end");
+      rematch();
+    });
+  }
+  const btnConfirmEnd = $("btn-confirm-end");
+  if (btnConfirmEnd) {
+    btnConfirmEnd.addEventListener("click", () => {
+      closeModal("modal-confirm-end");
+      resetToSetup(false);
+    });
+  }
 
   $("btn-mrwhite-submit").addEventListener("click", submitMrWhiteGuess);
   $("mrwhite-guess-input").addEventListener("keydown", (e) => {

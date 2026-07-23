@@ -7,12 +7,11 @@
 export const WORD_DATABASE = [
   // ── Food & Drink ──────────────────────────────────────────
   { genre: "Food", difficulty: "Easy", wordA: "Coffee", wordB: "Tea" },
-  { genre: "Food", difficulty: "Easy", wordA: "Burger", wordB: "Sandwich" },
+  { genre: "Food", difficulty: "Easy", wordA: "Pav Bhaji", wordB: "Misal Pav" },
   { genre: "Food", difficulty: "Easy", wordA: "Pizza", wordB: "Pasta" },
   { genre: "Food", difficulty: "Easy", wordA: "Apple", wordB: "Pear" },
-  { genre: "Food", difficulty: "Easy", wordA: "Milk", wordB: "Yogurt" },
+  { genre: "Food", difficulty: "Easy", wordA: "Ice Cream", wordB: "Yogurt" },
   { genre: "Food", difficulty: "Easy", wordA: "Bread", wordB: "Toast" },
-  { genre: "Food", difficulty: "Easy", wordA: "Soup", wordB: "Stew" },
   { genre: "Food", difficulty: "Easy", wordA: "Chocolate", wordB: "Candy" },
   { genre: "Food", difficulty: "Medium", wordA: "Pancake", wordB: "Waffle" },
   { genre: "Food", difficulty: "Medium", wordA: "Ice Cream", wordB: "Gelato" },
@@ -21,9 +20,9 @@ export const WORD_DATABASE = [
   { genre: "Food", difficulty: "Medium", wordA: "Butter", wordB: "Margarine" },
   { genre: "Food", difficulty: "Medium", wordA: "Salsa", wordB: "Guacamole" },
   { genre: "Food", difficulty: "Medium", wordA: "Croissant", wordB: "Bagel" },
-  { genre: "Food", difficulty: "Medium", wordA: "Sushi", wordB: "Sashimi" },
+  { genre: "Food", difficulty: "Medium", wordA: "Momos", wordB: "Dumplings" },
   { genre: "Food", difficulty: "Hard", wordA: "Jam", wordB: "Jelly" },
-  { genre: "Food", difficulty: "Hard", wordA: "Broth", wordB: "Stock" },
+  { genre: "Food", difficulty: "Hard", wordA: "Syrup", wordB: "Sauce" },
   { genre: "Food", difficulty: "Hard", wordA: "Cinnamon", wordB: "Nutmeg" },
   { genre: "Food", difficulty: "Hard", wordA: "Macaron", wordB: "Macaroon" },
   { genre: "Food", difficulty: "Hard", wordA: "Baking Soda", wordB: "Baking Powder" },
@@ -304,10 +303,43 @@ const SCORE = {
 
 export { SCORE };
 
-let playedKeys = new Set();
+const STORAGE_KEY_PLAYED_WORDS = "undercover_played_word_keys";
+
+function loadPlayedKeys() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PLAYED_WORDS);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function savePlayedKeys(keysSet) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PLAYED_WORDS, JSON.stringify([...keysSet]));
+  } catch (e) {}
+}
+
+function getPairKey(pair) {
+  return [pair.wordA, pair.wordB].map((w) => w.trim().toLowerCase()).sort().join("|");
+}
+
+function secureRandomInt(max) {
+  if (max <= 0) return 0;
+  const array = new Uint32Array(1);
+  if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(array);
+  } else if (typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues(array);
+  } else {
+    array[0] = Math.floor(Math.random() * max);
+  }
+  return array[0] % max;
+}
 
 /**
  * Pick a random unused pair, optionally filtered by difficulty.
+ * Uses Web Crypto API (CSPRNG) and persistent localStorage history across games.
  * @param {'All'|'Easy'|'Medium'|'Hard'} difficulty
  */
 export function getRandomWordPair(difficulty = "All") {
@@ -317,19 +349,23 @@ export function getRandomWordPair(difficulty = "All") {
     if (pool.length === 0) pool = WORD_DATABASE;
   }
 
-  const available = pool.filter((p) => {
-    const key = `${p.wordA}|${p.wordB}`;
-    return !playedKeys.has(key);
-  });
+  const playedKeys = loadPlayedKeys();
+  let available = pool.filter((p) => !playedKeys.has(getPairKey(p)));
 
-  const source = available.length > 0 ? available : pool;
-  if (available.length === 0) playedKeys.clear();
+  if (available.length === 0) {
+    // Reset keys for this pool when all pairs have been played once
+    pool.forEach((p) => playedKeys.delete(getPairKey(p)));
+    savePlayedKeys(playedKeys);
+    available = pool;
+  }
 
-  const pair = source[Math.floor(Math.random() * source.length)];
-  playedKeys.add(`${pair.wordA}|${pair.wordB}`);
+  const idx = secureRandomInt(available.length);
+  const pair = available[idx];
+  playedKeys.add(getPairKey(pair));
+  savePlayedKeys(playedKeys);
 
-  // Randomly swap which side is civilian vs undercover
-  if (Math.random() > 0.5) {
+  // Randomly swap which side is civilian vs undercover using CSPRNG
+  if (secureRandomInt(2) === 1) {
     return { genre: pair.genre, difficulty: pair.difficulty, wordA: pair.wordB, wordB: pair.wordA };
   }
   return { ...pair };
