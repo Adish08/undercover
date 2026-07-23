@@ -277,6 +277,81 @@ function applyPreset() {
   }
 }
 
+const STORAGE_KEY_SAVED_NAMES = "uc_recent_player_names";
+
+function isDefaultPlaceholderName(str) {
+  if (!str || typeof str !== "string") return true;
+  const s = str.trim().toLowerCase();
+  return /^player\s*\d+$/i.test(s) || /^p\d+$/i.test(s) || s === "p" || s === "player";
+}
+
+function loadRecentNames() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SAVED_NAMES);
+    const names = raw ? JSON.parse(raw) : [];
+    const scoreNames = Object.keys(state.scores || {});
+    const combined = Array.from(new Set([...names, ...scoreNames])).filter(
+      (n) => n && typeof n === "string" && n.trim().length > 0 && !isDefaultPlaceholderName(n)
+    );
+    return combined;
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRecentNames(namesList) {
+  try {
+    const cleanList = namesList.filter((n) => !isDefaultPlaceholderName(n));
+    if (cleanList.length === 0) return;
+    const existing = loadRecentNames();
+    const combined = Array.from(new Set([...cleanList, ...existing])).slice(0, 15);
+    localStorage.setItem(STORAGE_KEY_SAVED_NAMES, JSON.stringify(combined));
+  } catch (e) {}
+}
+
+function renderRecentPlayerChips() {
+  const section = $("recent-players-section");
+  const chipsContainer = $("recent-players-chips");
+  if (!section || !chipsContainer) return;
+
+  const recents = loadRecentNames();
+  if (recents.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  const currentInputs = Array.from(document.querySelectorAll(".player-name-input"));
+  const usedNames = new Set(currentInputs.map((inp) => inp.value.trim().toLowerCase()));
+
+  chipsContainer.innerHTML = "";
+  let count = 0;
+
+  recents.forEach((name) => {
+    if (count >= 10) return;
+    count++;
+    const isUsed = usedNames.has(name.toLowerCase());
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `recent-chip ${isUsed ? "used" : ""}`;
+    chip.innerHTML = `<span>+</span> ${escapeHTML(name)}`;
+
+    chip.addEventListener("click", () => {
+      if (chip.classList.contains("used")) return;
+      const emptyInput = currentInputs.find(
+        (inp) => !inp.value.trim() || inp.value.trim().startsWith("Player ")
+      );
+      if (emptyInput) {
+        emptyInput.value = name;
+        emptyInput.dispatchEvent(new Event("input"));
+      }
+    });
+
+    chipsContainer.appendChild(chip);
+  });
+
+  section.classList.remove("hidden");
+}
+
 /* ── Players ────────────────────────────────────────────── */
 function goToPlayers() {
   const total = state.totalPlayers;
@@ -289,7 +364,7 @@ function goToPlayers() {
     const row = document.createElement("div");
     row.className = "name-row";
     row.innerHTML = `
-      <span class="name-idx">${i + 1}</span>
+      <span class="name-idx">#${i + 1}</span>
       <div class="name-avatar" style="background:${colorFor(i)}">${escapeHTML(
       (saved || `P`).charAt(0).toUpperCase()
     )}</div>
@@ -305,10 +380,19 @@ function goToPlayers() {
       const av = input.parentElement.querySelector(".name-avatar");
       const v = input.value.trim();
       av.textContent = (v || "P").charAt(0).toUpperCase();
+
+      // Avatar micro-bounce animation
+      av.classList.remove("bounce");
+      void av.offsetWidth;
+      av.classList.add("bounce");
+      setTimeout(() => av.classList.remove("bounce"), 180);
+
+      renderRecentPlayerChips();
     });
   });
 
   $("players-warning").classList.add("hidden");
+  renderRecentPlayerChips();
   switchView("players");
 }
 
@@ -349,6 +433,7 @@ function startGame(useSavedNames = false) {
   }
 
   state.savedNames = [...names];
+  saveRecentNames(names);
 
   // Science-Backed Fair Role Assignment (CSPRNG + Anti-Streak Balance)
   const assignedRoles = allocateFairRoles(names, state.config);
@@ -1158,14 +1243,6 @@ function bind() {
 
   $("btn-rematch").addEventListener("click", rematch);
   $("btn-new-game").addEventListener("click", () => resetToSetup(false));
-  $("btn-reset-scores").addEventListener("click", () => {
-    if (confirm("Reset all saved scores?")) {
-      state.scores = {};
-      state.players.forEach((p) => (state.scores[p.name] = 0));
-      saveScores();
-      renderLeaderboard();
-    }
-  });
 
   $("btn-theme").addEventListener("click", toggleTheme);
 

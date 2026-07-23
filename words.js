@@ -304,6 +304,7 @@ const SCORE = {
 export { SCORE };
 
 const STORAGE_KEY_PLAYED_WORDS = "undercover_played_word_keys";
+const STORAGE_KEY_LAST_GENRE = "undercover_last_played_genre";
 
 function loadPlayedKeys() {
   try {
@@ -339,7 +340,8 @@ function secureRandomInt(max) {
 
 /**
  * Pick a random unused pair, optionally filtered by difficulty.
- * Uses Web Crypto API (CSPRNG) and persistent localStorage history across games.
+ * Uses Web Crypto API (CSPRNG), persistent localStorage history,
+ * and Smart Genre Rotation to prevent back-to-back category repetition.
  * @param {'All'|'Easy'|'Medium'|'Hard'} difficulty
  */
 export function getRandomWordPair(difficulty = "All") {
@@ -359,10 +361,30 @@ export function getRandomWordPair(difficulty = "All") {
     available = pool;
   }
 
-  const idx = secureRandomInt(available.length);
-  const pair = available[idx];
+  // Genre-Rotation Smart Shuffle: Avoid picking the same genre twice in a row if alternatives exist
+  let lastGenre = null;
+  try {
+    lastGenre = localStorage.getItem(STORAGE_KEY_LAST_GENRE);
+  } catch (e) {}
+
+  let candidatePool = available;
+  if (lastGenre) {
+    const rotated = available.filter((p) => p.genre !== lastGenre);
+    // Non-restrictive organic rotation: 85% preference for a fresh genre,
+    // 15% organic chance to allow natural repeat so it never feels rigid!
+    if (rotated.length > 0 && secureRandomInt(100) < 85) {
+      candidatePool = rotated;
+    }
+  }
+
+  const idx = secureRandomInt(candidatePool.length);
+  const pair = candidatePool[idx];
   playedKeys.add(getPairKey(pair));
   savePlayedKeys(playedKeys);
+
+  try {
+    localStorage.setItem(STORAGE_KEY_LAST_GENRE, pair.genre);
+  } catch (e) {}
 
   // Randomly swap which side is civilian vs undercover using CSPRNG
   if (secureRandomInt(2) === 1) {

@@ -194,6 +194,13 @@
       </header>
       <div class="view-body">
         <div class="panel" id="player-inputs-container"></div>
+
+        <!-- Recent Players Chips Container -->
+        <div id="recent-players-section" class="recent-players-panel hidden">
+          <div class="recent-players-label">Quick Add Recent Friends</div>
+          <div id="recent-players-chips" class="recent-chips-container"></div>
+        </div>
+
         <div id="players-warning" class="inline-alert hidden" role="alert"></div>
       </div>
       <footer class="view-footer">
@@ -342,7 +349,6 @@
         <div class="section-block">
           <div class="section-head">
             <h3>Leaderboard</h3>
-            <button type="button" id="btn-reset-scores" class="text-muted tiny">Reset scores</button>
           </div>
           <div class="podium" id="podium"></div>
           <div class="lb-list" id="leaderboard-list"></div>
