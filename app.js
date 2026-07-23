@@ -12,9 +12,16 @@ const ROLES = {
 };
 
 const AVATAR_COLORS = [
-  "#FF453A", "#FF9F0A", "#FFD60A", "#30D158",
-  "#64D2FF", "#0A84FF", "#5E5CE6", "#BF5AF2",
-  "#FF375F", "#AC8E68",
+  "#FF3B30", // 1. Vibrant Red
+  "#30B0C7", // 2. Cool Teal
+  "#AF52DE", // 3. Deep Purple
+  "#34C759", // 4. Fresh Green
+  "#FF9500", // 5. Warm Orange
+  "#007AFF", // 6. Royal Blue
+  "#FF2D55", // 7. Electric Pink
+  "#5856D6", // 8. Indigo
+  "#32ADE6", // 9. Ocean Blue
+  "#5AC8FA", // 10. Ice Cyan
 ];
 
 const VIEW_ORDER = ["setup", "players", "reveal", "game", "voting", "gameover"];
@@ -158,7 +165,25 @@ function allocateFairRoles(playerNames, config) {
   saveRoleHistory(history);
   return deck;
 }
-function colorFor(id) {
+function assignRandomAvatarColors(count, names = []) {
+  const shuffled = shuffle([...AVATAR_COLORS]);
+  state.playerColors = {};
+  for (let i = 0; i < count; i++) {
+    const color = shuffled[i % shuffled.length];
+    state.playerColors[i] = color;
+    if (names[i]) {
+      state.playerColors[names[i].trim().toLowerCase()] = color;
+    }
+  }
+}
+
+function colorFor(id, name = "") {
+  if (name && state.playerColors && state.playerColors[name.trim().toLowerCase()]) {
+    return state.playerColors[name.trim().toLowerCase()];
+  }
+  if (state.playerColors && state.playerColors[id] !== undefined) {
+    return state.playerColors[id];
+  }
   return AVATAR_COLORS[id % AVATAR_COLORS.length];
 }
 function initial(name) {
@@ -168,7 +193,7 @@ function $(id) {
   return document.getElementById(id);
 }
 function avatarHTML(id, name, sizeClass = "") {
-  return `<div class="${sizeClass}" style="background:${colorFor(id)}">${escapeHTML(initial(name))}</div>`;
+  return `<div class="${sizeClass}" style="background:${colorFor(id, name)}">${escapeHTML(initial(name))}</div>`;
 }
 
 /* ── Views ──────────────────────────────────────────────── */
@@ -355,6 +380,7 @@ function renderRecentPlayerChips() {
 /* ── Players ────────────────────────────────────────────── */
 function goToPlayers() {
   const total = state.totalPlayers;
+  assignRandomAvatarColors(total, state.savedNames);
   $("player-count-display").textContent = total;
   const container = $("player-inputs-container");
   container.innerHTML = "";
@@ -380,13 +406,6 @@ function goToPlayers() {
       const av = input.parentElement.querySelector(".name-avatar");
       const v = input.value.trim();
       av.textContent = (v || "P").charAt(0).toUpperCase();
-
-      // Avatar micro-bounce animation
-      av.classList.remove("bounce");
-      void av.offsetWidth;
-      av.classList.add("bounce");
-      setTimeout(() => av.classList.remove("bounce"), 180);
-
       renderRecentPlayerChips();
     });
   });
@@ -434,6 +453,7 @@ function startGame(useSavedNames = false) {
 
   state.savedNames = [...names];
   saveRecentNames(names);
+  assignRandomAvatarColors(names.length, names);
 
   // Science-Backed Fair Role Assignment (CSPRNG + Anti-Streak Balance)
   const assignedRoles = allocateFairRoles(names, state.config);
@@ -1045,53 +1065,24 @@ function renderLeaderboard() {
     .map((p) => [p.name, state.scores[p.name] || 0])
     .sort((a, b) => b[1] - a[1]);
 
-  const podium = $("podium");
-  const top3 = sorted.slice(0, 3);
-  const slots = [];
-  if (top3[0]) slots.push({ entry: top3[0], rank: 1, cls: "gold", medal: "🥇" });
-  if (top3[1]) slots.push({ entry: top3[1], rank: 2, cls: "silver", medal: "🥈" });
-  if (top3[2]) slots.push({ entry: top3[2], rank: 3, cls: "bronze", medal: "🥉" });
-
-  // DOM order: silver | gold | bronze for classic podium
-  const visual = [
-    slots.find((s) => s.rank === 2),
-    slots.find((s) => s.rank === 1),
-    slots.find((s) => s.rank === 3),
-  ].filter(Boolean);
-
-  podium.innerHTML = visual
-    .map((s) => {
-      const [name, pts] = s.entry;
-      const p = state.players.find((x) => x.name === name);
-      const id = p ? p.id : 0;
-      return `
-        <div class="podium-slot ${s.cls}">
-          <div class="p-avatar-wrap">
-            <div class="p-avatar" style="background:${colorFor(id)}">${escapeHTML(
-              initial(name)
-            )}</div>
-            <span class="p-badge">${s.medal}</span>
-          </div>
-          <span class="p-name">${escapeHTML(name)}</span>
-          <span class="p-pts">${pts} pts</span>
-          <div class="p-pedestal">
-            <span class="p-rank">${s.rank}</span>
-          </div>
-        </div>`;
-    })
-    .join("");
-
-  // Full list (everyone)
   const lb = $("leaderboard-list");
+  if (!lb) return;
+
+  const medals = ["🥇", "🥈", "🥉"];
+
   lb.innerHTML = sorted
     .map(([name, score], index) => {
       const p = state.players.find((x) => x.name === name);
       const id = p ? p.id : index;
+      const rankBadge = index < 3
+        ? `<span class="lb-medal">${medals[index]}</span>`
+        : `<span class="lb-rank">#${index + 1}</span>`;
       const rankClass = index === 0 ? "gold" : index === 1 ? "silver" : index === 2 ? "bronze" : "";
+
       return `
         <div class="lb-row ${rankClass}">
-          <span class="lb-rank">${index + 1}</span>
-          <div class="lb-avatar" style="background:${colorFor(id)}">${escapeHTML(
+          ${rankBadge}
+          <div class="lb-avatar" style="background:${colorFor(id, name)}">${escapeHTML(
             initial(name)
           )}</div>
           <span class="lb-name">${escapeHTML(name)}</span>

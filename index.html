@@ -309,11 +309,14 @@
     <section id="view-voting" class="view" data-view="voting" hidden>
       <header class="play-header">
         <div class="play-top">
+          <button type="button" id="btn-back-clues" class="back-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+            Clues
+          </button>
           <div class="round-pill vote">
             <span class="round-dot"></span>
             Vote · Round <span id="vote-round-number">1</span>
           </div>
-          <button type="button" id="btn-back-clues" class="text-muted">← Clues</button>
         </div>
         <h1 class="page-title">Who is out?</h1>
         <p class="page-sub">Tap + / − to tally votes. Highest is eliminated. One vote per living player.</p>
@@ -345,19 +348,18 @@
       </header>
 
       <div class="view-body">
-        <!-- Podium leaderboard -->
+        <!-- Leaderboard -->
         <div class="section-block">
           <div class="section-head">
             <h3>Leaderboard</h3>
           </div>
-          <div class="podium" id="podium"></div>
           <div class="lb-list" id="leaderboard-list"></div>
         </div>
 
-        <!-- Recap -->
+        <!-- Game Recap -->
         <div class="section-block">
           <div class="section-head">
-            <h3>Round recap</h3>
+            <h3>Game Recap</h3>
           </div>
           <div class="recap-list" id="recap-list"></div>
         </div>
